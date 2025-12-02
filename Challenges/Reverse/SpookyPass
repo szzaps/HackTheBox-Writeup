@@ -1,0 +1,36 @@
+"""
+Le programme est un binaire simple qui vérifie un mot de passe et affiche un flag si le mot de passe est correct.
+
+Logique Principale :
+- En analysant le code assembleur (section .text à partir de l'adresse 0x1189), on peut identifier le workflow suivant:
+- Affichage d'un message de bienvenue (adresse 0x11d9)
+- Demande du mot de passe (adresse 0x11ed)
+- Lecture de l'entrée utilisateur avec fgets() (adresse 0x11f9)
+- Comparaison du mot de passe avec strcmp() (adresse 0x1250)
+
+La chaîne de comparaison se trouve à l'adresse 0x2080: s3cr3t_p455_f0r_gh05t_4nd_gh0ul5
+
+Extraction du Flag
+Lorsque le mot de passe est correct, le programme entre dans une boucle (adresses 0x1272 à 0x12af) qui:
+- Lit un tableau nommé parts (adresse 0x4060)
+- Extrait 26 éléments (0x19 = 25, mais boucle ≤ 0x19 → 26 itérations)
+- Chaque élément est un entier 4 octets dont seul le LSB contient un caractère ASCII
+
+Donées du tableau part : 
+- Adresse: 0x4060 (section .data)
+- chaque valeur sur 4 octets :
+
+0x48 0x54 0x42 0x7b 0x75 0x6e 0x30 0x62
+0x66 0x75 0x35 0x63 0x34 0x74 0x33 0x64
+0x5f 0x35 0x74 0x72 0x31 0x6e 0x67 0x35
+0x7d
+
+"""
+
+# Autant faire un ptit script python 
+
+hex_values = [0x48, 0x54, 0x42, 0x7b, 0x75, 0x6e, 0x30, 0x62, 0x66, 0x75, 0x35, 0x63, 0x34, 0x74, 0x33, 0x64, 0x5f, 0x35, 0x74, 0x72, 0x31, 0x6e, 0x67, 0x35, 0x7d]
+flag = ''.join(chr(v) for v in hex_values)
+print(flag)
+
+               
