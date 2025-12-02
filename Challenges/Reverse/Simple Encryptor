@@ -1,0 +1,50 @@
+"""
+Analyse du programme encrypt :
+Le programme lit un fichier "flag", le chiffre et écrit le résultat dans "flag.enc".
+
+Algo de chiffrement :
+
+- Initialise le générateur aléatoire avec srand(time(0))
+- Pour chaque octet du fichier :
+- XOR avec rand() & 0xFF
+- Rotation à gauche (ROL) de (rand() & 7) bits
+
+- Format du fichier chiffré flag.enc :
+- 4 premiers octets : la seed time(0) utilisée pour srand()
+- Suivi des données chiffrées
+"""
+
+import struct
+import ctypes
+
+libc = ctypes.CDLL("libc.so.6")
+
+def decrypt_ctypes(data):
+    seed = struct.unpack('<I', data[:4])[0]
+    ciphertext = data[4:]
+    
+    # Initialiser srand avec la seed
+    libc.srand(seed)
+    
+    decrypted = bytearray(len(ciphertext))
+    
+    for i in range(len(ciphertext)):
+        rand1 = libc.rand()
+        rand2 = libc.rand()
+        encrypted_byte = ciphertext[i]
+        
+        # Version 1: ROR puis XOR (inverse du chiffrement)
+        rotate_bits = rand2 & 7
+        # Rotation à droite (ROR)
+        temp = ((encrypted_byte >> rotate_bits) | (encrypted_byte << (8 - rotate_bits))) & 0xFF
+        decrypted_byte = temp ^ (rand1 & 0xFF)
+        
+        decrypted[i] = decrypted_byte
+    
+    return bytes(decrypted)
+
+with open("flag.enc", "rb") as f:
+    encrypted = f.read()
+
+decrypted = decrypt_ctypes(encrypted)
+print("Result:", decrypted)
