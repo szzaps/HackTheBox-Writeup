@@ -1,3 +1,31 @@
+"""
+Méthode : Heap Feng Shui → Oracle → Tcache poisoning → GOT overwrite
+
+- Heap :
+  Allocation/free cycles pour préparer heap layout
+  Création small/large bins pour leaks
+
+- Oracle memory leak :
+  Bruteforce hex digit par digit via side-channel
+  Leak libc via small bin
+  Leak heap via tcache FD pointer
+
+- Heap exploitation :
+  Fake chunk creation avec size 0x71
+  Tcache poisoning via FD pointer overwrite
+  Obfuscation pointer : ptr ^ (addr >> 12)`
+
+- GOT overwrite :
+  Target __j_rawmemchr dans GOT
+  Target strlen_xcvs2 dans GOT
+  Write gadget 0x000000000002CD53 (pop rdi; ret)
+
+- Payload :
+  Overwrite multiple GOT entries
+  Use one_gadget pour shell
+  Bypass full RELRO via tcache poisoning
+"""
+
 from pwn import *
 
 binary = ELF("./heapify")
