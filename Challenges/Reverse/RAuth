@@ -1,0 +1,26 @@
+"""
+- Le binaire attend un mot de passe en entrée. On remarque deux sauts conditionnels (jump if zero) bloquant la validation.
+- En patchant ces instructions (transformer JZ en JNZ), on passe la vérification localement
+- En creusant, on remarque une fonction qui fait appel à l’algorithme Salsa20, un chiffrement par flot.
+- On extrait la clé et le nonce dans la mémoire, ainsi que des données chiffrées stockées dans des registres SIMD (XMM).
+- Extraction des données : 
+
+- Clé (key) : ef39f4f20e76e33bd25f4db338e81b10
+- Nonce : d4c270a3
+- Données chiffrées (ciphertext) : 05055fb1a329a8d558d9f556a6cb31f324432a31c99dec72e33eb66f62ad1bf9
+"""
+
+from Crypto.Cipher import Salsa20
+
+key = b"ef39f4f20e76e33bd25f4db338e81b10"
+nonce = b"d4c270a3"
+
+ciphertext_hex = "05055fb1a329a8d558d9f556a6cb31f324432a31c99dec72e33eb66f62ad1bf9"
+ciphertext = bytes.fromhex(ciphertext_hex)
+
+cipher = Salsa20.new(key=key, nonce=nonce)
+decrypted = cipher.decrypt(ciphertext)
+
+print(decrypted.decode())
+
+# Ensuite le mot de passe permet de s’authentifier sur le serveur distant
