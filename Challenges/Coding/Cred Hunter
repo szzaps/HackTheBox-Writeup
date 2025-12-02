@@ -1,0 +1,92 @@
+"""
+Lecture des entrées depuis stdin
+- n : nombre total de lignes (emails + mots de passe)
+- emails : liste des emails valides détectés (contenant '@' et un '.' dans la partie domaine)
+- passwords : liste des mots de passe (tout ce qui n'est pas email)
+- Pour chaque email, extraction du prénom (username sans la dernière lettre)
+- Recherche dans passwords des mots de passe contenant ce prénom (sous-chaîne)
+- Constitution des paires (email, mot de passe) valides
+- Tri des paires par email puis mot de passe, tous deux en ordre lexicographique
+- Affichage des paires triées
+"""
+import sys
+
+n = int(sys.stdin.readline().strip())
+lines = [sys.stdin.readline().strip() for _ in range(n)]
+
+emails = []
+passwords = []
+
+for s in lines:
+    if '@' in s and '.' in s.split('@')[-1]:
+        emails.append(s)
+    else:
+        passwords.append(s)
+
+pairs = []
+
+for email in emails:
+    username = email.split('@')[0]
+    firstname = username[:-1]
+    for pw in passwords:
+        if firstname in pw:
+            pairs.append((email, pw))
+
+pairs.sort(key=lambda x: (x[0], x[1]))
+
+for email, pw in pairs:
+    print(email, pw)
+
+# en Rust maintenant : 
+
+"""
+use std::io::{self, BufRead};
+
+fn main() {
+    let stdin = io::stdin();
+    let mut lines_iter = stdin.lock().lines().map(|l| l.unwrap());
+
+    let n: usize = lines_iter.next().unwrap().parse().unwrap();
+    let mut emails = Vec::new();
+    let mut passwords = Vec::new();
+
+    for _ in 0..n {
+        let line = lines_iter.next().unwrap();
+        if let Some(at_pos) = line.find('@') {
+            if line[at_pos..].contains('.') {
+                emails.push(line);
+                continue;
+            }
+        }
+        passwords.push(line);
+    }
+
+    let mut pairs = Vec::new();
+
+    for email in &emails {
+        let username = email.split('@').next().unwrap();
+        if username.len() < 2 {
+            continue;
+        }
+        let firstname = &username[..username.len() - 1];
+        for pw in &passwords {
+            if pw.contains(firstname) {
+                pairs.push((email.clone(), pw.clone()));
+            }
+        }
+    }
+
+    pairs.sort_by(|a, b| {
+        let cmp_email = a.0.cmp(&b.0);
+        if cmp_email == std::cmp::Ordering::Equal {
+            a.1.cmp(&b.1)
+        } else {
+            cmp_email
+        }
+    });
+
+    for (email, pw) in pairs {
+        println!("{} {}", email, pw);
+    }
+}
+"""
