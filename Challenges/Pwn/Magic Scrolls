@@ -1,3 +1,32 @@
+"""
+Méthode : Heap Leak → Libc Leak → Stack leak → Tcache poisoning → ROP
+
+- Heap key leak :
+  Freed chunk → partial overwrite via set_fav
+  Leak HEAP_KEY from heap metadata
+  Key = safe-linking obfuscation
+
+- Libc leak :
+  Arbitrary read via magic numbers update(2, 0xffff...)
+  Read unsorted bin pointer (HEAP_KEY << 12) + 0xb60
+  Calculate libc base via offset 0x1d3ce0
+
+- Stack leak :
+  Arbitrary read libc.sym.environ
+  Calculate return address stack - 0x190
+
+- Tcache poisoning :
+  Create fake 0x81 size chunk inside 0xf0 chunk
+  Free 0x80 chunk → tcache
+  Arbitrary free via free(1) → tcache poisoning
+  Overwrite tcache FD with HEAP_KEY ^ (ret_addr-8)
+
+- ROP on stack :
+  Poisoned tcache → allocation sur la stack
+  ROP chain pop rdi; "/bin/sh"; ret; system
+  Bypass PIE, ASLR, stack canary
+"""
+
 from pwn import *
 
 exe = context.binary = ELF('./magic', checksec=False)
