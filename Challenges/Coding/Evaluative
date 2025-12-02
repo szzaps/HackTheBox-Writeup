@@ -1,0 +1,16 @@
+"""
+- On a des coefficients
+- Le polynôme est : P(x)=a0​+a1​x+a2​x2+⋯+a8​x8
+- On doit évaluer ce polynôme en 𝑥 = 𝑛
+"""
+
+a = list(map(int, input().split()))
+x = int(input())
+
+res = 0
+p = 1
+for coef in a:
+    res += coef * p
+    p *= x
+
+print(res)
