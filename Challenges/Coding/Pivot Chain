@@ -1,0 +1,119 @@
+"""
+Calcul du risque minimal pour atteindre la cible depuis le départ dans un graphe pondéré
+- N : nombre de noeuds
+- M : nombre d'arêtes
+- start & target : noeuds de départ et d'arrivée
+- hosts : dico pour associer chaque noeud à un indice entier
+- g : liste d'adjacence représentant le graphe (chaque arête a un poids "risque")
+- dist : tableau des distances minimales depuis start vers chaque noeud (initialisé à l'infini)
+- Utilisation de Dijkstra pour calculer le chemin de risque minimal
+- Affiche le risque minimal pour atteindre target depuis start
+"""
+import sys, heapq
+input = sys.stdin.readline
+
+N, M, start, target = input().split()
+N, M = int(N), int(M)
+
+hosts = {}
+def idx(h):
+    if h not in hosts:
+        hosts[h] = len(hosts)
+    return hosts[h]
+
+s, t = idx(start), idx(target)
+g = [[] for _ in range(N)]
+for _ in range(M):
+    u,v,r = input().split()
+    g[idx(u)].append((idx(v), int(r)))
+
+dist = [float('inf')] * N
+dist[s] = 0
+h = [(0,s)]
+while h:
+    c,u = heapq.heappop(h)
+    if u == t:
+        print(c)
+        break
+    if c > dist[u]:
+        continue
+    for nv, w in g[u]:
+        nc = c + w
+        if nc < dist[nv]:
+            dist[nv] = nc
+            heapq.heappush(h, (nc, nv))
+
+
+
+# en Rust maintenant :
+
+"""
+use std::collections::{BinaryHeap, HashMap};
+use std::cmp::Reverse;
+use std::io::{self, BufRead};
+
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+
+    let first_line = lines.next().unwrap().unwrap();
+    let mut parts = first_line.split_whitespace();
+    let n: usize = parts.next().unwrap().parse().unwrap();
+    let m: usize = parts.next().unwrap().parse().unwrap();
+    let start = parts.next().unwrap().to_string();
+    let target = parts.next().unwrap().to_string();
+
+    let mut hosts = HashMap::new();
+    let mut get_idx = |node: &str| {
+        if !hosts.contains_key(node) {
+            let idx = hosts.len();
+            hosts.insert(node.to_string(), idx);
+        }
+        hosts[node]
+    };
+
+    let s = get_idx(&start);
+    let t = get_idx(&target);
+
+    let mut graph = vec![Vec::new(); n];
+
+    for _ in 0..m {
+        let line = lines.next().unwrap().unwrap();
+        let mut it = line.split_whitespace();
+        let u = it.next().unwrap();
+        let v = it.next().unwrap();
+        let r: i32 = it.next().unwrap().parse().unwrap();
+
+        let u_idx = get_idx(u);
+        let v_idx = get_idx(v);
+
+        graph[u_idx].push((v_idx, r));
+    }
+
+    let mut dist = vec![i32::MAX; n];
+    dist[s] = 0;
+
+    let mut heap = BinaryHeap::new();
+    heap.push(Reverse((0, s)));
+
+    while let Some(Reverse((cost, u))) = heap.pop() {
+        if u == t {
+            println!("{}", cost);
+            break;
+        }
+
+        if cost > dist[u] {
+            continue;
+        }
+
+        for &(nv, w) in &graph[u] {
+            let nc = cost + w;
+            if nc < dist[nv] {
+                dist[nv] = nc;
+                heap.push(Reverse((nc, nv)));
+            }
+        }
+    }
+}
+
+"""
