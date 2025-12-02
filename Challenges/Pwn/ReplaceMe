@@ -1,3 +1,31 @@
+"""
+Méthode : Format string exploitation → Binary base leak → Libc leak → ROP
+
+- Binary base leak :
+  Input A*79 + \x4e + \x00 → format string exploit
+  Replacement s/A/B*122/ → overflow format string
+  Leak main address via partial output
+  Calculate binary base leaked_main - main
+
+- Libc leak :
+  ROP chain puts(GOT.puts) → ret → main
+  Second format string exploitation
+  Input A*124 + B → control format string
+  Replacement avec ROP chain → leak puts@got
+  Calculate libc base leaked_puts - puts
+
+- ROP :
+  Third format string exploitation
+  ROP chain ret → system("/bin/sh")
+  Stack alignment avec ret 
+  Overwrite saved RIP via format string
+
+- Format string vuln :
+  s/old/new/ replacement sans check
+  Null bytes \x00\x00\x00\x00 pour bypass memcpy size
+  Partial overwrites pour leaks
+"""
+
 from pwn import *
 
 exe = "./replaceme"
