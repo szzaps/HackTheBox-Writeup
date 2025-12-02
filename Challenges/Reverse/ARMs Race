@@ -1,0 +1,49 @@
+"""
+Le but est d'émuler l'exécution du code et de renvoyer la
+valeur finale du registre R0.
+
+Fonctionnement:
+    1. Connexion au serveur (HOST:PORT)
+    2. Réception du code ARM en hex (format: "Level X: XXXXXX")
+    3. Émulation du code avec le framework Unicorn
+    4. Extraction de la valeur du registre R0 après exécution
+    5. Envoi de la valeur au serveur
+    6. Répéte pour chaque level
+
+Architecture:
+    - ARM 32-bit (UC_ARCH_ARM, UC_MODE_ARM)
+    - Mémoire mappée: 0x10000 à 0x210000 (2MB)
+    - Point d'entrée: 0x10000
+
+Structure:
+    emu(b)          -> Émule le code ARM et retourne R0
+    main loop       -> Communication avec le serveur
+"""
+
+from unicorn import *
+from unicorn.arm_const import *
+from pwn import *
+
+def emu(b):
+    try:
+        e = Uc(UC_ARCH_ARM, UC_MODE_ARM)
+        e.mem_map(0x10000, 0x200000)
+        e.mem_write(0x10000, b)
+        e.emu_start(0x10000, 0x10000 + len(b))
+        return e.reg_read(UC_ARM_REG_R0)
+    except:
+        pass
+
+p = remote('HOST', PORT)
+
+while True:
+    m = p.recvregex(br'(Level .+): (.+)\n', capture=True)
+    if not m:
+        print(p.recv())
+        break
+    
+    p.recvregex(br'Register .+:')
+    b = bytes.fromhex(m[2].decode())
+    r = emu(b)
+    print(f'{m[1].decode()}: {r}')
+    p.sendline(str(r))
