@@ -1,0 +1,27 @@
+"""
+- On reçoit une liste de nombres.
+- Parmi eux, seuls deux sont premiers.
+- On doit trouver ces deux nombres premiers.
+- Puis afficher leur produit.
+"""
+
+
+def est_premier(n):
+    if n < 2:
+        return False
+    if n == 2:
+        return True
+    if n % 2 == 0:
+        return False
+    for i in range(3, int(n**0.5)+1, 2):
+        if n % i == 0:
+            return False
+    return True
+
+nombres = list(map(int, input().split()))
+primes = [x for x in nombres if est_premier(x)]
+
+# Y'a exactement deux nombres premiers
+resultat = primes[0] * primes[1]
+
+print(resultat)
