@@ -1,0 +1,36 @@
+1 - Identification du Programme
+
+- Fichier : behindthescenes (ELF 64-bit) 
+- Fonctionnalité : Programme de vérification de mot de passe avec mécanisme anti-débogage ( Me pose aucun problème :D )
+
+2 - Mécanisme Anti-Débogage (Anti-Debug)
+
+- Instructions ud2 : Opcode 0x0F 0x0B qui génère une exception "Invalid Opcode"
+- Handler SIGILL : Fonction segill_sigaction qui intercepte SIGILL (signal 4)
+- Modification de rip : Le handler ajoute +2 à rip pour sauter l'instruction ud2
+
+3 - Logique de Vérification du Mot de passe
+
+Le programme vérifie l'argument fourni avec 4 vérifications partielles :
+
+Adresses des chaînes dans .rodata :
+
+0x201b: "Itz"     // Premiers 3 caractères
+0x201f: "_0n"     // Caractères 4-6 (offset 3)
+0x2023: "Ly_"     // Caractères 7-9 (offset 6)
+0x2027: "UD2"     // Caractères 10-12 (offset 9)
+
+Vérifications dans main :
+
+- strlen(argv[1]) == 12 (0x1323)
+- strncmp(argv[1], "Itz", 3) == 0 (0x134c)
+- strncmp(argv[1]+3, "_0n", 3) == 0 (0x137c)
+- strncmp(argv[1]+6, "Ly_", 3) == 0 (0x13ac)
+- strncmp(argv[1]+9, "UD2", 3) == 0 (0x13d8)
+
+Donc on a le flag :
+
+(venv) szzaps@vulnhub:~$ ./behindthescenes Itz_0nLy_UD2
+> HTB{Itz_0nLy_UD2}
+(venv) szzaps@vulnhub:~$
+
