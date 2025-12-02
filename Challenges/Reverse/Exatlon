@@ -1,0 +1,29 @@
+"""
+- Premierement je remarque que le binaire est packé avec UPX donc faut déja commencer par le decompresser : upx -d exatlon_v1
+
+Analyse du code
+- Le programme affiche une bannière ASCII puis demande un mot de passe.
+- L’entrée est comparée à une valeur codée en dur, avec un branchement conditionnel selon la réussite de la comparaison.
+- Dans le code, on trouve une liste de nombres :
+1152 1344 1056 1968 1728 816 1648 784 1584 816 1728 1520 1840 1664 784 1632 1856 1520 1728 816 1632 1856 1520 784 1760 1840 1824 816 1584 1856 784 1776 1760 528 528 2000
+
+Debugging avec GDB
+- breakpoints avant la saisie et avant la comparaison.
+- En testant les premières lettres du flag HTB{...}, on observe que les entrées correspondent aux valeurs dans la liste :
+- 'H' correspond à 1152
+- 'T' correspond à 1344
+- 'B' correspond à 1056
+
+Décodage 
+- Les nombres sont trop grands pour être des codes ASCII classiques.
+- En divisant chaque nombre par 16, on obtient la valeur ASCII attendue :
+- 1152 / 16 = 72 → 'H'
+- 1344 / 16 = 84 → 'T'
+- 1056 / 16 = 66 → 'B'
+Plus qu'a l'implementer en python :D 
+"""
+
+nums = [1152, 1344, 1056, 1968, 1728, 816, 1648, 784, 1584, 816, 1728, 1520, 1840, 1664, 784, 1632, 1856, 1520, 1728, 816, 1632, 1856, 1520, 784, 1760, 1840, 1824, 816, 1584, 1856, 784, 1776, 1760, 528, 528, 2000]
+
+flag = ''.join(chr(n // 16) for n in nums)
+print(flag)
