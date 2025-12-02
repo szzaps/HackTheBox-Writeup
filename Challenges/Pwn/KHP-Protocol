@@ -1,3 +1,28 @@
+"""
+Méthode : Use-after-free → Heap overflow → Code execution
+
+- Setup initial :
+  3 allocations REKE chaita:admin abcdef
+  Libère la 3ème entry DEKE 3 → slot libre dans la heap
+
+- Heap overflow :
+  REKE CHA:ITA  + \x01 *0x70 + chaita:admin abcdef
+  Overflow de 0x70 bytes pour corrompre structures heap 
+
+- Exploitation :
+  Overflow corrompt chunk libre → fake chunk
+  AUTH 1 utilise chunk corrompu → contrôle flux exécution
+
+- Structure payload :
+  Header CHA:ITA → overflow
+  0x70 bytes de padding → overflow heap
+  chaita:admin abcdef → pour bypass checks
+
+- Vulnérabilité :
+  Use-after-free via AUTH 
+  Heap buffer overflow sans vérification de taille
+"""
+
 from pwn import *
 import time
 
