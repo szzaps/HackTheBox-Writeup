@@ -1,3 +1,30 @@
+"""
+Méthode : Format string → Brute force canary → ROP → Shell
+
+- Leak libc :
+  Format string `%2$p` pour leak adresse libc
+  Calcul base libc via lseek64 offset
+
+- Brute force canary :
+  Test chaque byte (0-255) 
+  Détection via crash/no crash
+  Canary = 8 bytes (0x00 + 7 bytes aléatoires)
+
+- ROP chain :
+  dup2(4, 0-2)` pour rediriger stdin/stdout/stderr vers fd 4
+  system("/bin/sh") pour shell
+
+- Payload :
+  Padding 8 bytes
+  Canary restauré
+  ROP chain avec dup2 + system
+
+- Vulnérabilités exploitées :
+  Format string pour leak
+  Buffer overflow & ROP
+  Canary bypass via brute force
+"""
+
 from pwn import *
 
 libc = context.binary = ELF("libc.so.6")
