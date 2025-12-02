@@ -1,0 +1,65 @@
+"""
+- Reçoit un template de code PIN avec des chiffres connus et des positions inconnues marquées '*'
+- Génère toutes les combinaisons possibles en remplaçant '*' par des chiffres 0-9
+- Ne permet pas deux chiffres identiques adjacents
+- Affiche les codes valides en ordre lexicographique
+"""
+pin_template = input().strip()
+
+def backtrack(pos, current):
+    if pos == len(pin_template):
+        print("".join(current))
+        return
+    if pin_template[pos] != '*':
+        if pos > 0 and current[-1] == pin_template[pos]:
+            return
+        current.append(pin_template[pos])
+        backtrack(pos+1, current)
+        current.pop()
+    else:
+        for digit in "0123456789":
+            if pos > 0 and current[-1] == digit:
+                continue
+            current.append(digit)
+            backtrack(pos+1, current)
+            current.pop()
+
+backtrack(0, [])
+
+
+# en Rust maintenant : 
+
+"""
+use std::io::{self, BufRead};
+
+fn backtrack(pin: &Vec<char>, pos: usize, current: &mut Vec<char>) {
+    if pos == pin.len() {
+        println!("{}", current.iter().collect::<String>());
+        return;
+    }
+    if pin[pos] != '*' {
+        if pos > 0 && current[pos - 1] == pin[pos] {
+            return;
+        }
+        current.push(pin[pos]);
+        backtrack(pin, pos + 1, current);
+        current.pop();
+    } else {
+        for d in '0'..='9' {
+            if pos > 0 && current[pos - 1] == d {
+                continue;
+            }
+            current.push(d);
+            backtrack(pin, pos + 1, current);
+            current.pop();
+        }
+    }
+}
+
+fn main() {
+    let stdin = io::stdin();
+    let pin = stdin.lock().lines().next().unwrap().unwrap();
+    let pin_chars: Vec<char> = pin.chars().collect();
+    backtrack(&pin_chars, 0, &mut Vec::new());
+}
+"""
