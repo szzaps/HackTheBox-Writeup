@@ -1,0 +1,28 @@
+"""
+Analyse
+- Le chiffrement XOR utilise une clé de 4 octets aléatoire qui se répète.
+- On a le flag chiffré en hexadécimal :
+134af6e1297bc4a96f6a87fe046684e8047084ee046d84c5282dd7ef292dc9
+
+- La clé est inconnue, mais le format du flag est HTB{...}.
+- On peut utiliser le known plaintext : les 4 premiers caractères "HTB{" correspondent aux 4 premiers octets du chiffré
+
+Récupération de la clé
+- Soit flag_enc les bytes chiffrés.
+- Soit known = b"HTB{".
+- Alors key[i] = flag_enc[i] ^ known[i] pour i = 0..3.
+
+Une fois la clé trouvée, on déchiffre tout le message avec XOR répété.
+"""
+
+import binascii
+
+enc_hex = "134af6e1297bc4a96f6a87fe046684e8047084ee046d84c5282dd7ef292dc9"
+enc_bytes = binascii.unhexlify(enc_hex)
+
+known = b"HTB{"
+key = bytes([enc_bytes[i] ^ known[i] for i in range(4)])
+print("Key found:", key.hex())
+
+decrypted = bytes([enc_bytes[i] ^ key[i % 4] for i in range(len(enc_bytes))])
+print("Decrypted:", decrypted.decode())
