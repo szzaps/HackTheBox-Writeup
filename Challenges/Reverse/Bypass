@@ -1,0 +1,385 @@
+"""
+- Malheureusement j'ai du faire du C# pour ce challenge 
+"""
+
+"""
+(venv) szzaps@TESHIMA:~$ ilspycmd Bypass.exe
+using System;
+using System.IO;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Security.Cryptography;
+using System.Text;
+
+[assembly: TargetFramework(".NETFramework,Version=v4.5.2", FrameworkDisplayName = ".NET Framework 4.5.2")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyDescription("")]
+[assembly: ComVisible(false)]
+[assembly: CompilationRelaxations(8)]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyProduct("HTBChallange")]
+[assembly: AssemblyCopyright("Copyright ©  2019")]
+[assembly: RuntimeCompatibility(WrapNonExceptionThrows = true)]
+[assembly: Guid("5089226f-12b6-4050-9ce3-f7c43721a5a2")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyTitle("HTBChallange")]
+[assembly: AssemblyVersion("1.0.0.0")]
+internal class <Module>
+{
+        static <Module>()
+        {
+                5.0();
+        }
+}
+public class 0
+{
+        public static string 0;
+
+        public static string 1;
+
+        public static string 2 = 5.8;
+
+        public static void 0()
+        {
+                if (1())
+                {
+                        2();
+                        return;
+                }
+                Console.WriteLine(5.0);
+                0();
+        }
+
+        public static bool 1()
+        {
+                Console.Write(5.1);
+                string text = Console.ReadLine();
+                Console.Write(5.2);
+                string text2 = Console.ReadLine();
+                return false;
+        }
+
+        public static void 2()
+        {
+                string text = 5.3;
+                Console.Write(5.4);
+                string text2 = Console.ReadLine();
+                if (text == text2)
+                {
+                        Console.Write(5.5 + global::0.2 + 5.6);
+                        return;
+                }
+                Console.WriteLine(5.7);
+                2();
+        }
+}
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class)]
+public class 1 : Attribute
+{
+        public string 0;
+
+        public 1()
+        {
+                0 = 5.9;
+        }
+}
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class)]
+public class 2 : Attribute
+{
+        public string 0;
+
+        public 2()
+        {
+                0 = 5.a;
+        }
+}
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class)]
+public class 3 : Attribute
+{
+        public string 0;
+
+        public 3()
+        {
+                0 = 5.b;
+        }
+}
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class)]
+public class 4 : Attribute
+{
+        public string 0;
+
+        public 4()
+        {
+                0 = 5.c;
+        }
+}
+internal static class 5
+{
+        internal static string 0;
+
+        internal static string 1;
+
+        internal static string 2;
+
+        internal static string 3;
+
+        internal static string 4;
+
+        internal static string 5;
+
+        internal static string 6;
+
+        internal static string 7;
+
+        internal static string 8;
+
+        internal static string 9;
+
+        internal static string a;
+
+        internal static string b;
+
+        internal static string c;
+
+        public static void 0()
+        {
+                6 obj = new 6(global::7.3(Assembly.GetExecutingAssembly().GetManifestResourceStream("0")));
+                global::5.0 = obj.6();
+                1 = obj.6();
+                2 = obj.6();
+                3 = obj.6();
+                4 = obj.6();
+                5 = obj.6();
+                6 = obj.6();
+                7 = obj.6();
+                8 = obj.6();
+                9 = obj.6();
+                a = obj.6();
+                b = obj.6();
+                c = obj.6();
+        }
+}
+internal class 6
+{
+        private readonly BinaryReader 0;
+
+        public 6(Stream 0)
+        {
+                this.0 = new BinaryReader(0, Encoding.Unicode);
+        }
+
+        public 6(byte[] 0)
+                : this(new MemoryStream(0))
+        {
+        }
+
+        public string 6()
+        {
+                return 0.ReadString();
+        }
+
+        public sbyte 7()
+        {
+                return 0.ReadSByte();
+        }
+
+        public int 8()
+        {
+                return 0.ReadInt32();
+        }
+
+        public long 9()
+        {
+                return 0.ReadInt64();
+        }
+
+        public float a()
+        {
+                return 0.ReadSingle();
+        }
+
+        public double b()
+        {
+                return 0.ReadDouble();
+        }
+}
+public static class 7
+{
+        public const int 0 = default(int);
+
+        public static byte[] 2(byte[] 0)
+        {
+                using RijndaelManaged rijndaelManaged = new RijndaelManaged();
+                rijndaelManaged.BlockSize = 128;
+                rijndaelManaged.Mode = CipherMode.CBC;
+                rijndaelManaged.GenerateKey();
+                rijndaelManaged.GenerateIV();
+                using MemoryStream memoryStream = new MemoryStream(0);
+                byte[] array = new byte[rijndaelManaged.Key.Length];
+                byte[] array2 = new byte[rijndaelManaged.IV.Length];
+                memoryStream.Read(array, 0, array.Length);
+                memoryStream.Read(array2, 0, array2.Length);
+                using ICryptoTransform transform = rijndaelManaged.CreateDecryptor(array, array2);
+                using CryptoStream cryptoStream = new CryptoStream(memoryStream, transform, CryptoStreamMode.Read);
+                byte[] array3 = new byte[memoryStream.Length - memoryStream.Position];
+                cryptoStream.Read(array3, 0, array3.Length);
+                return array3;
+        }
+
+        public static byte[] 3(Stream 0)
+        {
+                byte[] array = new byte[0.Length];
+                0.Read(array, 0, array.Length);
+                return 2(array);
+        }
+}
+(venv) szzaps@TESHIMA:~$
+""" # SUPER UNE LOOP INFINIE !!!! FAUT DONC PATCH 
+
+"""
+cat > extract_resources.cs << 'EOF'
+using System;
+using System.IO;
+using System.Reflection;
+using System.Resources;
+
+class Program
+{
+    static void Main()
+    {
+        Assembly asm = Assembly.LoadFrom("Bypass.exe");
+        string[] resources = asm.GetManifestResourceNames();
+        Console.WriteLine("Resources found:");
+        foreach (string res in resources)
+        {
+            Console.WriteLine($"  {res}");
+            
+            Stream stream = asm.GetManifestResourceStream(res);
+            byte[] data = new byte[stream.Length];
+            stream.Read(data, 0, data.Length);
+            
+            Console.WriteLine($"  Size: {data.Length} bytes");
+            File.WriteAllBytes(res + ".bin", data);
+            Console.WriteLine($"  Saved to: {res}.bin");
+        }
+    }
+}
+EOF
+
+mcs extract_resources.cs
+mono extract_resources.exe
+"""
+
+from Crypto.Cipher import AES
+import struct
+
+with open('0.bin', 'rb') as f:
+    data = f.read()
+
+key = data[:32]
+iv = data[32:48]
+encrypted = data[48:]
+
+cipher = AES.new(key, AES.MODE_CBC, iv)
+decrypted = cipher.decrypt(encrypted)
+
+def read_string(data, pos):
+    length = 0
+    shift = 0
+    while True:
+        if pos >= len(data):
+            raise EOFError
+        b = data[pos]
+        pos += 1
+        length |= (b & 0x7F) << shift
+        if (b & 0x80) == 0:
+            break
+        shift += 7
+    
+    string_bytes = data[pos:pos + length * 2]
+    if len(string_bytes) < length * 2:
+        raise EOFError
+    return data[pos:pos + length * 2].decode('utf-16le'), pos + length * 2
+
+pos = 0
+strings = []
+while pos < len(decrypted):
+    try:
+        s, pos = read_string(decrypted, pos)
+        strings.append(s)
+    except:
+        break
+
+if len(strings) >= 9:
+    print(strings[3])
+    print(strings[5] + strings[8] + strings[6])
+
+# Ensuite je chope la clée
+
+"""
+Key: 7c05ff52467eb178e4f5283af4ccf853925a54c619f551d5534636eca63d9701
+IV: 5d6d0020032622a1328d430f7f687b15
+Encrypted size: 1568 bytes
+
+Found 13 strings:
+[0] Wrong username and/or password䔤渀琀攀爀 愀 甀猀攀爀渀愀洀攀㨀 ␀Enter a pas
+[1] 眀漀爀搀㨀 簀ThisIsAReallyReallySecureKeyButYouCanReadItFromSourceSoItSucks债氀攀愀猀攀 䔀渀琀攀爀 琀栀攀 猀攀挀爀攀琀 䬀攀礀㨀 㐀Nice here is the
+[2] 䘀氀愀最㨀䠀吀䈀笀Ȁ}園爀漀渀最 䬀攀礀ᨀSuP3rC00lFL
+[3] 最鰀吂栀椀猀 攀砀攀挀甀琀愀戀氀攀 栀愀猀 戀攀攀渀 漀戀昀甀猀挀愀琀攀搀 戀礀 甀猀椀渀最 刀甀猀琀攀
+[4]
+[5] 匀漀昀琀 匀欀愀琀攀爀 ⸀一䔀吀 伀戀昀甀猀挀愀琀漀爀 䐀攀洀漀 瘀攀爀猀椀漀渀⸀ 倀氀攀愀猀攀 瘀椀猀椀琀 刀甀猀琀攀洀匀漀昀琀⸀挀漀洀 昀漀爀 洀漀爀攀 椀渀昀漀爀洀愀琀椀漀渀⸀鰀吂栀椀猀 攀砀攀挀甀琀愀戀氀攀 栀
+[6]
+[7] 猀 戀攀攀渀 漀戀昀甀猀挀愀琀攀搀 戀礀 甀猀椀渀最 刀甀猀琀攀洀匀漀昀琀 匀欀愀琀攀爀 ⸀一䔀吀 伀戀昀甀猀挀愀琀漀爀 䐀攀洀漀 瘀攀爀猀椀漀渀⸀ 倀氀攀愀猀攀 瘀椀猀椀琀 刀甀猀琀攀洀匀漀昀
+[8]
+[9] ⸀挀漀洀 昀漀爀 洀漀爀攀 椀渀昀漀爀洀愀琀椀漀渀⸀鰀吂栀椀猀 攀砀攀挀甀琀愀戀氀攀 栀愀猀 戀攀攀渀 漀戀昀甀猀挀愀琀攀搀 戀礀 甀猀椀渀最 刀甀猀琀攀洀匀漀昀琀 匀欀愀琀攀爀 ⸀一䔀吀 伀戀昀甀猀挀愀琀漀爀 䐀攀洀漀 瘀攀爀猀椀
+[10]
+[11] 渀⸀ 倀氀攀愀猀攀 瘀椀猀椀琀 刀甀猀琀攀洀匀漀昀琀⸀挀漀洀 昀漀爀 洀漀爀攀 椀渀昀漀爀洀愀琀椀漀渀⸀鰀吂栀椀猀 攀砀攀挀甀琀愀戀氀攀 栀愀猀 戀攀攀渀 漀戀昀甀猀挀愀琀攀搀 戀礀 甀猀椀渀最 刀甀猀琀攀洀匀漀昀琀 匀欀
+[12]
+
+Key (5.3): 最鰀吂栀椀猀 攀砀攀挀甀琀愀戀氀攀 栀愀猀 戀攀攀渀 漀戀昀甀猀挀愀琀攀搀 戀礀 甀猀椀渀最 刀甀猀琀攀
+Flag: 匀漀昀琀 匀欀愀琀攀爀 ⸀一䔀吀 伀戀昀甀猀挀愀琀漀爀 䐀攀洀漀 瘀攀爀猀椀漀渀⸀ 倀氀攀愀猀攀 瘀椀猀椀琀 刀甀猀琀攀洀匀漀昀琀⸀挀漀洀 昀漀爀 洀漀爀攀 椀渀昀漀爀洀愀琀椀漀渀⸀鰀吂栀椀猀 攀砀攀挀甀琀愀戀氀攀 栀
+"""
+
+# Petit Script encore MALHEUREUSEMENT en C# 
+
+"""
+cat > extract_key.cs << 'EOF'
+using System;
+using System.Reflection;
+
+class Program
+{
+    static void Main()
+    {
+        Assembly asm = Assembly.LoadFrom("Bypass.exe");
+        
+        Type type5 = asm.GetType("5");
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(type5.TypeHandle);
+        
+        FieldInfo field3 = type5.GetField("3", BindingFlags.Static | BindingFlags.NonPublic);
+        string key = (string)field3.GetValue(null);
+        
+        Console.WriteLine($"The key is: {key}");
+        
+        FieldInfo field5 = type5.GetField("5", BindingFlags.Static | BindingFlags.NonPublic);
+        FieldInfo field8 = type5.GetField("8", BindingFlags.Static | BindingFlags.NonPublic);
+        FieldInfo field6 = type5.GetField("6", BindingFlags.Static | BindingFlags.NonPublic);
+        
+        string part1 = (string)field5.GetValue(null);
+        string part2 = (string)field8.GetValue(null);
+        string part3 = (string)field6.GetValue(null);
+        
+        Console.WriteLine($"Flag: {part1}{part2}{part3}");
+    }
+}
+EOF
+
+mcs extract_key.cs
+mono extract_key.exe
+"""
+
+
+
