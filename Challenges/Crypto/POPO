@@ -1,0 +1,68 @@
+"""
+- On a un chiffrement de Paillier modifié avec une optimisation qui permet de chiffrer soit g^m, soit m directement selon un flag optim
+Le service permet :
+- Encrypt : chiffre un m donné avec r fixe (mais inconnu).
+- Knowledge proof : si on fournit gm = g^m mod n^2, il renvoie λ = lcm(p-1, q-1).
+- Test homomorphic : teste l’additivité.
+
+Vulnérabilité :
+- En chiffrant m=0, on obtient c0 = gm * r^n mod n^2.
+- En chiffrant m = c0, avec optim=1 (après premier chiffrement), on obtient c1 = c0 * r^n mod n^2.
+- Car optim=1 ⇒ local = m (donc c0)
+
+Ainsi :
+
+c0 = gm * r^n mod n^2
+c1 = c0 * r^n mod n^2
+
+- Donc c1 * c0^{-1} = r^n mod n^2.
+- On en déduit r^n.
+- Puis gm = c0 * (r^n)^{-1} mod n^2.
+
+Une fois gm obtenu, on peut le soumettre à l’option 2 pour obtenir λ.
+
+- Avec λ, on peut déchiffrer le message original via Paillier.
+- Mais ici, comme g = n+1 (initial), on a directement gm = (n+1)^m = 1 + m*n mod n^2.
+- Donc m = (gm - 1) // n.
+"""
+
+import json
+from pwn import remote
+from Crypto.Util.number import long_to_bytes
+
+r = remote("94.237.61.249", 58724)
+
+# 1. Encrypt m=0 to get c0 = gm * r^n
+r.sendlineafter(b"> ", b"1")
+r.sendlineafter(b"message: ", b"0")
+data = json.loads(r.recvline().strip().decode().replace("'", '"'))
+c0 = int(data["c"])
+n = int(data["n"])
+
+# 2. Encrypt m=c0 (now optim=1) to get c1 = c0 * r^n
+r.sendlineafter(b"> ", b"1")
+r.sendlineafter(b"message: ", str(c0).encode())
+data = json.loads(r.recvline().strip().decode().replace("'", '"'))
+c1 = int(data["c"])
+
+# 3. Compute r^n = c1 * c0^{-1} mod n^2
+n2 = n * n
+inv_c0 = pow(c0, -1, n2)
+rn = (c1 * inv_c0) % n2
+
+# 4. Compute gm = c0 * (r^n)^{-1} mod n^2
+inv_rn = pow(rn, -1, n2)
+gm = (c0 * inv_rn) % n2
+
+# 5. Verify gm via knowledge proof 
+r.sendlineafter(b"> ", b"2")
+r.sendlineafter(b"gm: ", str(gm).encode())
+resp = json.loads(r.recvline().strip().decode().replace("'", '"'))
+assert 'λ' in resp  # ensures gm is correct
+
+# 6. Decrypt: gm = (n+1)^m = 1 + m*n mod n^2
+m = (gm - 1) // n
+flag = long_to_bytes(m).decode()
+print("Flag:", flag)
+
+r.close()
