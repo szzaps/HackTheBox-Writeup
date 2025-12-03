@@ -1,0 +1,76 @@
+"""
+- ptit chall de reverse basé sur le kernel Linux
+
+Fichier Founis
+- bzImage - Image du kernel
+- initramfs.cpio.gz - Système de fichiers compressé
+- run.sh - Script pour exécuter le programme
+
+Étape 1: Extraction du système de fichiers
+
+- gunzip -c initramfs.cpio.gz | cpio -id
+
+Après extraction, on trouve :
+- Une application en mode utilisateur (le "checker")
+- Un module kernel (checker.ko)
+
+Analyse avec Ghidra
+- Le module kernel (checker.ko) contient une fonction clé qui gère la vérification du mot de passe.
+
+Fonction de vérification (simplifiée) :
+
+// Le module copie l'input utilisateur dans DAT_00100c40
+_copy_from_user(user_input, DAT_00100c40, ...);
+
+// Puis compare avec le résultat d'une opération XOR
+if (user_input[i] != (s1[i] ^ s2[i])) {
+    // Échec de vérification
+}
+
+s1 et s2 sont des données dans la section .rodata
+
+Extraction des données du module:
+
+- Extraction de la section .rodata
+objcopy checker.ko --dump-section .rodata=totoro
+
+Analyse des données extraites
+- La section .rodata contient :
+- À l'offset 0x20: données pour s1 (64 bytes)
+- À l'offset 0x60: données pour s2
+
+
+- Script pour decoder en C :p
+"""
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    FILE *f = fopen("totoro", "rb");
+    if (!f) return 1;
+
+    // Taille du fichier
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    // Lecture 
+    unsigned char *data = malloc(size);
+    fread(data, 1, size, f);
+    fclose(f);
+
+    // s1 = data[0x20 : 0x60] (64 bytes)
+    unsigned char *s1 = data + 0x20;
+    unsigned char *s2 = data + 0x60;
+    long s2_len = size - 0x60;
+
+    // XOR
+    for (long i = 0; i < s2_len; i++) {
+        putchar(s1[i] ^ s2[i]);
+    }
+    putchar('\n');
+
+    free(data);
+    return 0;
+} // gcc -o oni-chan oni-chan.c
+"""
