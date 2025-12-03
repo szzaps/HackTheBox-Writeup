@@ -1,0 +1,67 @@
+"""
+- File structure: The program appears to read from a file called rb (from .rodata section at address 0x2004).
+- Decryption function (decrypt at 0x11d9):
+- Opens file "rb" for reading
+- Creates/opens a file with mode 0x490201 (O_WRONLY|O_CREAT|O_TRUNC) and permissions 0x1ed (493 decimal = 755 octal)
+- Reads bytes from the input file one by one
+- XORs each byte with 0xAB (see instruction at 0x1270: xor $0xab,%al)
+- Writes the XORed byte to the output file
+
+- Main function:
+- Calls decrypt() which returns a file descriptor
+- Creates a string path: /proc/self/fd/%d using the returned file descriptor
+- Opens that path
+- Executes the decrypted file using fexecve() with arguments <anonymous> (from .rodata at 0x2054)
+
+- The Encryption
+- The encryption is a simple XOR cipher with key 0xAB (171 decimal). Each byte in the encrypted file is XORed with 0xAB to decrypt it.
+"""
+
+python3 -c "
+with open('file.bin', 'rb') as f:
+    data = f.read()
+with open('decrypted', 'wb') as f:
+    f.write(bytes(b ^ 0xAB for b in data))
+"
+chmod +x decrypted
+
+"""
+- Input: 28-character flag (without HTB{})
+- Step 1: Swap 8 characters at specific positions
+- Step 2: Split into two 14-character halves
+- Step 3: Shuffle each half using permutation array: [9, 12, 2, 10, 4, 1, 6, 3, 8, 5, 7, 11, 0, 13]
+- Step 4: XOR 6 characters in each half at positions [2, 4, 6, 8, 11, 13]:
+- Left half: XOR with 2
+- Right half: XOR with 3
+- Step 5: Concatenate and compare with RV{r15]_vcP3o]L_tazmfSTaa3s0
+"""
+
+# Deuxieme script python ( cette fois ci pour decoder ) :
+
+def transform1(list_text, num_byte):
+    array1 = [1, 9, 2, 7, 4, 0, 6, 10, 8, 12, 3, 11, 5, 13]
+    array2 = [2, 4, 6, 8, 11, 13]
+    for i in array2:
+        list_text[i] = chr(ord(list_text[i]) ^ ord(num_byte))
+    temp_text = [''] * len(array1)
+    for i in range(len(array1)):
+        temp_text[array1[i]] = list_text[i]
+    return temp_text
+
+def transform2(list_text):
+    list_text[0], list_text[12] = list_text[12], list_text[0]
+    list_text[14], list_text[26] = list_text[26], list_text[14]
+    list_text[4], list_text[8] = list_text[8], list_text[4]
+    list_text[20], list_text[23] = list_text[23], list_text[20]
+    return list_text
+
+encoded = "RV{r15]_vcP3o]L_tazmfSTaa3s0"
+first_half = list(encoded[:14])
+second_half = list(encoded[14:])
+first_half = transform1(first_half, chr(2))
+second_half = transform1(second_half, chr(3))
+full_string = first_half + second_half
+full_string = transform2(full_string)
+flag = ''.join(full_string)
+print(f"Flag: HTB{{{flag}}}")
+
