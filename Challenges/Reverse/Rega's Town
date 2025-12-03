@@ -1,0 +1,194 @@
+"""
+- Premier truc que je remarque : C'EST ECRIT EN RUST .
+
+Lorsqu'on exécute le binaire:
+
+./rega_town
+Welcome to our secret town!
+Enter secret passphrase:
+test12345
+Maybe next time :<
+
+ptit objdump dessus je remarque principalement une fonction : 
+- Une fonction filter_input qui vérifie l'input
+- Une série de vérifications par expressions régulières
+
+Debugging avec GDB :
+
+- En utilisant GDB avec GEF, on breakpoint sur regex::regex::string::Regex::new pour voir les regex appliquées:
+- Première regex: ^.{33}$ - Vérifie que l'input fait 33 caractères
+- Deuxième regex: (?:^[H][T][B]).* - Vérifie que l'input commence par "HTB"
+- Les regex suivantes vérifient différentes contraintes sur les caractères
+
+Liste Complète des Regex :
+
+^.{33}$
+(?:^[\x48][\x54][\x42]).*
+^.{3}(\x7b).*(\x7d)$
+^[[:upper:]]{3}.[[:upper:]].{3}[[:upper:]].{3}[[:upper:]].{3}[[:upper:]].{4}[[:upper:]].{2}[[:upper:]].{3}[[:upper:]].{4}$
+(?:.*\x5f.*)
+(?:.[^0-9]*\d.*){5}
+.{24}\x54.\x65.\x54.*
+^.{4}[X-Z]\d._[A]\D\d.................[[:upper:]][n-x]{2}[n|c].$
+.{11}_T[h|7]\d_[[:upper:]]\dn[a-h]_[O]\d_[[:alpha:]]{3}_.{5}
+
+En analysant les regex, on peut construire un format qui passe toutes les vérifications via un script python :
+"""
+import re
+import itertools
+import string
+
+regex_parts = [
+    r'^.{33}$',
+    r'(?:^[H][T][B]).*',
+    r'^.{3}(\{).*(})',
+    r'^[[:upper:]]{3}.[[:upper:]].{3}[[:upper:]].{3}[[:upper:]].{3}[[:upper:]].{4}[[:upper:]].{2}[[:upper:]].{3}[[:upper:]].{4}$',
+    r'(?:.*_.*)',
+    r'(?:.[^0-9]*\d.*){5}',
+    r'.{24}T.e.T.*',
+    r'^.{4}[X-Z]\d._[A]\D\d.................[[:upper:]][n-x]{2}[n|c].$',
+    r'.{11}_T[h|7]\d_[[:upper:]]\dn[a-h]_[O]\d_[[:alpha:]]{3}_.{5}'
+]
+
+targets = [0x7a070, 0x5c436, 0x6cc60, 0x27b5776, 0x10f9, 0xd76a0, 0x7465a58]
+
+segment_regexes = [
+    r"[X-Z]\d.",
+    r"[A]\D\d",
+    r"T[h|7]\d",
+    r"[A-Z]\dn[a-h]",
+    r"[O]\d",
+    r"T[A-Za-z0-9$]{2}",
+    r"[A-Z][n-x]{2}[n|c]"
+]
+
+segment_lengths = [3, 3, 3, 4, 2, 3, 4]
+
+def check_product(segment, target):
+    product = 1
+    for char in segment:
+        product *= ord(char)
+    return product == target
+
+def generate_possibilities():
+    all_possibilities = []
+    chars = string.ascii_letters + string.digits
+    
+    for i, (regex, length, target) in enumerate(zip(segment_regexes, segment_lengths, targets)):
+        possibilities = []
+        print(f"\nSegment {i+1} (longueur {length}, cible 0x{target:x}):")
+        print(f"Regex: {regex}")
+        
+        for combo in itertools.product(chars, repeat=length):
+            segment = ''.join(combo)
+            if re.fullmatch(regex, segment) and check_product(segment, target):
+                possibilities.append(segment)
+                print(f"  ✓ {segment}")
+        
+        all_possibilities.append(possibilities)
+    return all_possibilities
+
+def find_valid_combinations(possibilities):
+    valid_flags = []
+    for combo in itertools.product(*possibilities):
+        flag = f"HTB{{{'_'.join(combo)}}}"
+        if len(flag) != 33:
+            continue
+        if not flag.startswith("HTB{") or not flag.endswith("}"):
+            continue
+        if flag.count('_') != 6:
+            continue
+        uppercase_regex = r'^[A-Z]{3}.[A-Z].{3}[A-Z].{3}[A-Z].{3}[A-Z].{4}[A-Z].{2}[A-Z].{3}[A-Z].{4}$'
+        if re.match(uppercase_regex, flag[4:-1]):
+            valid_flags.append(flag)
+    return valid_flags
+
+def main():
+    print("Génération des possibilités pour chaque segment")
+    possibilities = generate_possibilities()
+    
+    print("\nRecherche des combinaisons valides")
+    valid_flags = find_valid_combinations(possibilities)
+    
+    if valid_flags:
+        print(f"\nFlags valides trouvés ({len(valid_flags)}):")
+        for flag in valid_flags:
+            print(f"  {flag}")
+            
+        if len(valid_flags) > 1:
+            print("\nSuggestions (en anglais):")
+            for flag in valid_flags:
+                segments = flag[4:-1].split('_')
+                if segments[0].startswith('Y0') and segments[1].startswith('Ar') and segments[2] == 'Th3':
+                    print(f"  → {flag} (le plus probable)")
+    else:
+        print("Aucun flag valide trouvé!")
+
+if __name__ == "__main__":
+    main()
+
+
+# Et deuxieme script pour voir toute les possibilitées sur la sortie du script ci-dessus ( on voit littéralement le flag en branchant 2 neuronnes mais j'avais envie de me faire chier ) 
+
+"""
+import itertools
+import re
+
+all_possibilities = [
+    ["Y0u", "Y4l", "Y6h"],
+    ["Af9", "Ar3"],
+    ["Th3"],
+    ["K1ng"],
+    ["O7"],
+    ["Teh", "The"],
+    ["Town", "Twon"]
+]
+
+def test_all_combinations():
+    valid_combinations = []
+    for combo in itertools.product(*all_possibilities):
+        flag_parts = list(combo)
+        flag = f"HTB{{{'_'.join(flag_parts)}}}"
+        if len(flag) != 33:
+            continue
+        targets = [0x7a070, 0x5c436, 0x6cc60, 0x27b5776, 0x10f9, 0xd76a0, 0x7465a58]
+        all_match = True
+        for segment, target in zip(flag_parts, targets):
+            product = 1
+            for char in segment:
+                product *= ord(char)
+            if product != target:
+                all_match = False
+                break
+        if all_match:
+            valid_combinations.append(flag)
+    return valid_combinations
+
+def main():
+    print("Test de toutes les combinaisons possibles\n")
+    combinations = test_all_combinations()
+    if combinations:
+        print("Combinaisons valides trouvées:\n")
+        for flag in combinations:
+            print(f"Flag: {flag}")
+            print(f"Segments: {flag[4:-1].split('_')}\n")
+            print("Vérification des produits ASCII:")
+            targets = [0x7a070, 0x5c436, 0x6cc60, 0x27b5776, 0x10f9, 0xd76a0, 0x7465a58]
+            flag_parts = flag[4:-1].split('_')
+            for i, (segment, target) in enumerate(zip(flag_parts, targets)):
+                product = 1
+                for char in segment:
+                    product *= ord(char)
+                status = "✓" if product == target else "✗"
+                print(f"  Segment {i+1} '{segment}': {product} (0x{product:x}) == {target} (0x{target:x}) {status}")
+            print("-" * 50)
+
+if __name__ == "__main__":
+    main()
+
+"""
+
+
+
+
+
