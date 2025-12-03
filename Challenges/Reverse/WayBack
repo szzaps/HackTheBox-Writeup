@@ -1,0 +1,81 @@
+"""
+Étape 1: Analyse du binaire V1
+- En regardant le code assembleur, on voit que:
+- Le programme utilise srand(time(NULL)) pour initialiser le générateur aléatoire
+- Il génère un mot de passe à partir d'un ensemble de caractères
+- L'ensemble de caractères dépend des réponses à trois questions:
+- Longueur du mot de passe
+- Inclure des chiffres? (yes/no)
+- Inclure des symboles? (yes/no)
+
+Étape 2: Fonction generate_password
+- La fonction _Z17generate_passwordB5cxx11ibb (mangled name pour generate_password) fait:
+- Initialise un ensemble de caractères de base (lettres minuscules)
+- Ajoute des symboles si demandé: !@#$%^&*+
+- Ajoute des chiffres si demandé: 0123456789
+- Utilise srand() avec une valeur basée sur time(NULL) transformée
+- Génère le mot de passe avec rand() % len(character_set)
+
+Le code pour calculer la seed est:
+
+time_t t = time(NULL);
+struct tm *tm = localtime(&t);
+
+int seed = tm->tm_sec * 1000000;          // secondes * 1,000,000
+seed += tm->tm_min * 100;                 // minutes * 100
+seed += tm->tm_hour;                      // heures
+seed += tm->tm_year * 10000;              // année * 10,000
+seed += (tm->tm_mon + 1) * 100000000;     // mois * 100,000,000
+
+Contraintes :
+- Selon la description:
+- "password is 20 characters long"
+- "consisted of only alphanumeric characters and symbols"
+- "between the 10th and the 11th of December 2013"
+"""
+
+# Script Python : 
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+import time
+import ctypes
+
+libc = ctypes.CDLL('libc.so.6')
+chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*_+0123456789"
+enc = bytes.fromhex('ad24426047b0ffb03b679773664838462a6f00bdcaf0589dd1748e9ed5c568601edc87d974894f9dd9b98cc35535145c494eb0af84c8f78d440a033c91c7de62d506d8cabdc2a10138b95139bbe60e89')
+
+def decrypt(msg, key):
+    try:
+        key = key.ljust(32, b'\x00')
+        iv = msg[:16]
+        ct = msg[16:]
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        padded = decryptor.update(ct) + decryptor.finalize()
+        unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+        return (unpadder.update(padded) + unpadder.finalize()).decode()
+    except:
+        return None
+
+t = time.strptime("10.12.2013 00:00:00 UTC", "%d.%m.%Y %H:%M:%S %Z")
+sec = time.mktime(t)
+
+for _ in range(2*24*60*60):
+    srand = (t.tm_mday * 1000000 + t.tm_min * 100 + t.tm_sec + t.tm_hour * 10000 + 
+             ((t.tm_year * 0x540be400) & 0xFFFFFFFF) + ((t.tm_mon * 100000000) & 0xFFFFFFFF)) & 0xFFFFFFFF
+    
+    libc.srand(srand)
+    key = ''.join(chars[libc.rand() % len(chars)] for _ in range(20))
+    
+    msg = decrypt(enc, key.encode())
+    if msg:
+        print(f"Decrypted: {msg}")
+        break
+    
+    sec += 1
+    t = time.gmtime(sec)
+
+# :p
+
