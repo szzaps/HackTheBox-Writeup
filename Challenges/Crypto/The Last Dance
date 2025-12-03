@@ -1,0 +1,41 @@
+"""
+Dans le dossier, on a trois données dans out.txt :
+- Le nonce (appelé iv dans le code), en hexadécimal.
+- Le texte chiffré d’un message connu (plaintext connu).
+- Le texte chiffré du flag (plaintext inconnu).
+Le script Python source.py chiffre les deux messages avec ChaCha20 en réutilisant la même clé et le même nonce
+
+Analyse
+- ChaCha20 est un chiffre à flot
+ciphertext = plaintext ⊕ keystream
+
+- Si on chiffre deux messages différents avec la même clé et nonce, on utilise le même keystream. Donc :
+ciphertext1 ​= plaintext1 ​⊕ keystream
+ciphertext2​ = plaintext2​ ⊕ keystream
+
+- Et comme on connaît plaintext_1 et ciphertext_1, on peut extraire le keystream 
+
+Solution :
+- Convertir les hexadécimaux en bytes.
+- Calculer le keystream en XORant le ciphertext du message connu avec son plaintext.
+- Déchiffrer le flag en XORant son ciphertext avec le keystream.
+"""
+
+import binascii
+
+nonce_hex = "c4a66edfe80227b4fa24d431"
+ciphertext_message_hex = "7aa34395a258f5893e3db1822139b8c1f04cfab9d757b9b9cca57e1df33d093f07c7f06e06bb6293676f9060a838ea138b6bc9f20b08afeb73120506e2ce7b9b9dcd9e4a421584cfaba2481132dfbdf4216e98e3facec9ba199ca3a97641e9ca9782868d0222a1d7c0d3119b867edaf2e72e2a6f7d344df39a14edc39cb6f960944ddac2aaef324827c36cba67dcb76b22119b43881a3f1262752990"
+ciphertext_flag_hex = "7d8273ceb459e4d4386df4e32e1aecc1aa7aaafda50cb982f6c62623cf6b29693d86b15457aa76ac7e2eef6cf814ae3a8d39c7"
+
+plaintext = (b"Our counter agencies have intercepted your messages and a lot "
+             b"of your agent's identities have been exposed. In a matter of "
+             b"days all of them will be captured")
+
+ciphertext_message = binascii.unhexlify(ciphertext_message_hex)
+ciphertext_flag = binascii.unhexlify(ciphertext_flag_hex)
+
+keystream = bytes([c ^ p for c, p in zip(ciphertext_message, plaintext)])
+flag = bytes([c ^ k for c, k in zip(ciphertext_flag, keystream)])
+
+print(flag.decode())
+
