@@ -1,0 +1,74 @@
+"""
+- On peut se connecter à un service qui, chaque fois qu’on demande une capsule temporelle ("Y")
+- renvoie un chiffré RSA de la même clair (le flag) avec une clé publique différente à chaque fois
+- mais avec un exposant public fixe e = 5.
+
+Le schéma est le suivant :
+- Message m (le flag) est constant.
+- Pour chaque requête, on génère un nouveau n (1024 bits) et on calcule c = m^e mod n.
+- Le serveur renvoie (c, n, e).
+
+- Petit e (e=5) + même message chiffré sous plusieurs n différents → Attaque par théorème des restes chinois (Håstad’s Broadcast Attack) 
+- Si on obtient e chiffrés différents du même m sous e modules n différents, on peut retrouver m^e (sans modulo) via le CRT, puis extraire la racine e-ième dans ℤ (puisque m^e < n1·n2·…·ne).
+- Ici e=5 : il suffit de collecter 5 paires (c_i, n_i).
+
+Méthode
+- On a pour i = 1..5 :
+c_i = m^5 mod n_i
+
+Par le CRT, on calcule x tel que :
+x ≡ c_i (mod n_i)  pour i=1..5
+
+Alors x ≡ m^5 mod (n1·n2·…·n5).
+- Mais comme m est plus petit que chaque n_i (1024 bits) et m^5 < n1·n2·…·n5 (produit de cinq nombres 1024 bits → 5120 bits), en réalité x = m^5 exactement (pas de modulo :p )
+- Il suffit de calculer x via CRT, puis de prendre la racine 5ème entière
+"""
+
+from Crypto.Util.number import long_to_bytes
+from pwn import remote
+import json
+from math import prod
+
+def iroot(k, n):
+    u, s = n, n+1
+    while u < s:
+        s = u
+        t = (k-1) * s + n // pow(s, k-1)
+        u = t // k
+    return s
+
+def crt(residues, moduli):
+    # Chinese Remainder Theorem
+    N = prod(moduli)
+    result = 0
+    for r_i, n_i in zip(residues, moduli):
+        p = N // n_i
+        result += r_i * pow(p, -1, n_i) * p
+    return result % N
+
+host = "94.237.55.124"
+port = 53799
+
+capsules = []
+moduli = []
+rs = remote(host, port)
+
+for _ in range(5):
+    rs.recvuntil(b"(Y/n) ")
+    rs.sendline(b"Y")
+    line = rs.recvline().strip()
+    data = json.loads(line.decode())
+    c = int(data["time_capsule"], 16)
+    n = int(data["pubkey"][0], 16)
+    e = int(data["pubkey"][1])
+    capsules.append(c)
+    moduli.append(n)
+
+rs.close()
+
+x = crt(capsules, moduli)
+
+m = iroot(5, x)
+print("Candidate m^5:", x)
+print("Recovered m:", m)
+print("Flag:", long_to_bytes(m).decode())
