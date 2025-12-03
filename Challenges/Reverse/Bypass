@@ -3,7 +3,7 @@
 """
 
 """
-(venv) szzaps@TESHIMA:~$ ilspycmd Bypass.exe
+(venv) szzaps@vulnhub:~$ ilspycmd Bypass.exe
 using System;
 using System.IO;
 using System.Reflection;
@@ -236,7 +236,7 @@ public static class 7
                 return 2(array);
         }
 }
-(venv) szzaps@TESHIMA:~$
+(venv) szzaps@vulnhub:~$
 """ # SUPER UNE LOOP INFINIE !!!! FAUT DONC PATCH 
 
 """
