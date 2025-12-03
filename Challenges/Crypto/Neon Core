@@ -1,0 +1,252 @@
+"""
+Calculs dans GF(257)
+- On a F = GF(257), avec éléments 0..256.
+- S(x) = x^3 mod 257.
+- On cherche x tel que x^3 ≡ 1 mod 257 pour obtenir un 1 dans la matrice S(M).
+
+Résolution de x^3 = 1 dans GF(257) :
+- Les solutions sont 1 et éventuellement d’autres racines cubiques de l’unité.
+- F = 257
+- solutions = [x for x in range(F) if pow(x, 3, F) == 1]
+- print("Solutions to x^3 = 1 mod 257:", solutions)
+- Cela donne [1] uniquement si 257 ne divise pas l’ordre du groupe multiplicatif tel que 3 divise 256 (ce qui n’est pas le cas car 3 ne divise pas 256).
+- Donc seule solution x=1.
+
+- Donc pour avoir S(M)[i,j] = 1, il faut M[i,j] = 1.
+
+Récupération de T
+- Message nul : M = 0 partout → S(M) = 0 → C = T.
+- Envoyer 16 octets \x00 au serveur.
+
+Récupération de K et L
+- On construit pour chaque (i,j) une matrice X avec un 1 en position (i,j) et 0 ailleurs.
+- Ca correspond à M avec 1 en (i,j) car S(1)=1.
+
+- On obtient C'_{ij} = K * E_{ij} * L.
+- Propriété : (K * E_{ij} * L)_{r,c} = K[r,i] * L[j,c].
+- Donc la matrice C'_{ij} a pour colonne c : K[r,i] * L[j,c],
+- donc toutes les colonnes sont proportionnelles à [K[0,i], K[1,i], K[2,i], K[3,i]]^T.
+- De même, toutes les lignes sont proportionnelles à [L[j,0], L[j,1], L[j,2], L[j,3]].
+ -En fixant i=0 et variant j, on obtient les lignes de L (à un facteur multiplicatif près par colonne).
+- En fixant j=0 et variant i, on obtient les colonnes de K (à un facteur multiplicatif près par ligne).
+- Mais les facteurs s’annulent si on normalise.
+- Une approche simple : choisir une normalisation, par exemple fixer K[0,0] = 1, puis résoudre.
+
+Algorithme
+Envoyer bloc nul → obtenir T (16x16 valeurs hex → matrice 4x4).
+- Pour i=0..3, j=0..3 :
+- Construire bloc avec 1 en position (i,j) (index row-major : 4*i + j-ième octet = 1, les autres 0).
+- Envoyer, obtenir C_ij, soustraire T → C'_ij.
+- Extraire K[:,i] et L[j,:] à partir de C'_ij :
+- K[:,i] = première colonne de C'_ij (ou n’importe quelle colonne) normalisée.
+- L[j,:] = première ligne de C'_ij (ou n’importe quelle ligne) normalisée.
+- Assembler K et L.
+
+Pour déchiffrer un bloc C :
+- X = K^{-1} * (C - T) * L^{-1}
+- Puis M = S_inv(X) avec S_inv(x) = x^171 mod 257.
+- Appliquer au flag chiffré
+"""
+
+from pwn import remote
+import numpy as np
+
+F = 257
+mod = F
+
+def solve():
+    host = "83.136.253.144"
+    port = 59131
+    conn = remote(host, port)  # on renomme en conn pour éviter conflit
+    
+    conn.recvuntil(b"> ")
+    
+    #Récupérer T : envoyer bloc nul
+    def encrypt_message(msg):
+        conn.sendline(b"1")
+        conn.recvuntil(b"Enter message (raw text): ")
+        conn.sendline(msg.encode() if isinstance(msg, str) else msg)
+        conn.recvuntil(b"Ciphertext (hex): ")
+        ct_hex = conn.recvline().strip().decode()
+        return ct_hex
+    
+    # Bloc nul : 16 octets \x00
+    null_block = bytes(16)
+    ct_null = encrypt_message(null_block)
+    
+    def hex_to_matrix(hex_str):
+        # hex_str de longueur 32
+        mat = [[0]*4 for _ in range(4)]
+        for idx in range(16):
+            row = idx // 4
+            col = idx % 4
+            byte_val = int(hex_str[2*idx:2*idx+2], 16)
+            mat[row][col] = byte_val
+        return mat
+    
+    T_mat = hex_to_matrix(ct_null)
+    print("T =", T_mat)
+    
+    # Collecter les C'_ij
+    def block_with_one(i, j):
+        block = bytearray(16)
+        block[4*i + j] = 1
+        return bytes(block)
+    
+    Cprime = {}
+    for i in range(4):
+        for j in range(4):
+            blk = block_with_one(i, j)
+            ct = encrypt_message(blk)
+            C_mat = hex_to_matrix(ct)
+            # Soustraire T
+            Cprime_mat = [[ (C_mat[r][c] - T_mat[r][c]) % mod for c in range(4)] for r in range(4)]
+            Cprime[(i,j)] = Cprime_mat
+    
+    # Extraire K et L
+    K = [[0]*4 for _ in range(4)]
+    L = [[0]*4 for _ in range(4)]
+    
+    # Normalisation: fixer K[0][0] = 1
+    # Prendre (i,j) = (0,0)
+    C00 = Cprime[(0,0)]
+    # Colonne 0 de K est proportionnelle à la colonne 0 de C00
+    # Première colonne de C00: C00[r][0] = K[r,0] * L[0,0]
+    L[0][0] = 1
+    for row in range(4):
+        K[row][0] = C00[row][0] % mod
+    
+    # Pour i=0..3, K[row,i] = C'_i0[row,0] (car L[0,0]=1)
+    for i in range(4):
+        Ci0 = Cprime[(i,0)]
+        for row in range(4):
+            K[row][i] = Ci0[row][0] % mod
+    
+    # Maintenant utiliser (0,j) pour obtenir L[j,:]
+    # C'_0j[r,c] = K[r,0] * L[j,c]
+    # Donc L[j,c] = C'_0j[0,c] * inv(K[0,0])
+    inv_K00 = pow(K[0][0], -1, mod)
+    for j in range(4):
+        C0j = Cprime[(0,j)]
+        for c in range(4):
+            L[j][c] = (C0j[0][c] * inv_K00) % mod
+    
+    print("K =", K)
+    print("L =", L)
+    
+    # Vérification avec un autre (i,j)
+    test_ok = True
+    for i in range(4):
+        for j in range(4):
+            Cpred = [[0]*4 for _ in range(4)]
+            for r in range(4):
+                for c in range(4):
+                    Cpred[r][c] = (K[r][i] * L[j][c]) % mod
+            Cact = Cprime[(i,j)]
+            if Cpred != Cact:
+                test_ok = False
+                print(f"Mismatch at ({i},{j})")
+    
+    if not test_ok:
+        print("K,L incorrects, besoin de normalisation différente")
+        # On essaie quand même
+    
+    conn.sendline(b"2")
+    conn.recvuntil(b"Encrypted configuration (ciphertext, hex): ")
+    ct_flag_hex = conn.recvline().strip().decode()
+    print("Flag ciphertext hex length:", len(ct_flag_hex))
+    
+    # Inverse de K et L modulo 257
+    def mat_inv(M):
+        n = len(M)
+        A = [row[:] for row in M]
+        ident = [[1 if i==j else 0 for j in range(n)] for i in range(n)]
+        # Gauss-Jordan mod 257
+        for col in range(n):
+            # Chercher pivot non nul
+            pivot = -1
+            for row in range(col, n):
+                if A[row][col] % mod != 0:
+                    pivot = row
+                    break
+            if pivot == -1:
+                raise ValueError("Matrix not invertible")
+            A[col], A[pivot] = A[pivot], A[col]
+            ident[col], ident[pivot] = ident[pivot], ident[col]
+            # Normaliser la ligne du pivot
+            piv_val = A[col][col]
+            inv_piv = pow(piv_val, -1, mod)
+            for j in range(n):
+                A[col][j] = (A[col][j] * inv_piv) % mod
+                ident[col][j] = (ident[col][j] * inv_piv) % mod
+            # Éliminer les autres lignes
+            for row in range(n):
+                if row != col:
+                    factor = A[row][col]
+                    for j in range(n):
+                        A[row][j] = (A[row][j] - factor * A[col][j]) % mod
+                        ident[row][j] = (ident[row][j] - factor * ident[col][j]) % mod
+        return ident
+    
+    K_inv = mat_inv(K)
+    L_inv = mat_inv(L)
+    
+    # Fonction S_inv
+    def S_inv(x):
+        return pow(x, 171, mod)
+    
+    def decrypt_block(ct_hex):
+        C = hex_to_matrix(ct_hex)
+        # C - T
+        C_minus_T = [[ (C[r][c] - T_mat[r][c]) % mod for c in range(4)] for r in range(4)]
+        # K^{-1} * (C-T) * L^{-1}
+        def mat_mul(A, B):
+            n = len(A)
+            m = len(B[0])
+            p = len(B)
+            res = [[0]*m for _ in range(n)]
+            for i in range(n):
+                for k in range(p):
+                    aik = A[i][k]
+                    for j in range(m):
+                        res[i][j] = (res[i][j] + aik * B[k][j]) % mod
+            return res
+        
+        temp = mat_mul(K_inv, C_minus_T)
+        X = mat_mul(temp, L_inv)
+        # Appliquer S_inv élément par élément
+        M = [[ S_inv(X[r][c]) for c in range(4)] for r in range(4)]
+        # Convertir en bytes
+        blk = bytearray()
+        for r in range(4):
+            for c in range(4):
+                blk.append(M[r][c] % 256)
+        return bytes(blk)
+    
+    block_size_hex = 32  # 16 bytes -> 32 hex chars
+    flag_blocks = [ct_flag_hex[i:i+block_size_hex] for i in range(0, len(ct_flag_hex), block_size_hex)]
+    plain = b""
+    for blk in flag_blocks:
+        plain += decrypt_block(blk)
+    
+    pad_len = plain[-1]
+    if 1 <= pad_len <= 16 and all(plain[-i] == pad_len for i in range(1, pad_len+1)):
+        plain = plain[:-pad_len]
+    
+    print("Decrypted flag:", plain.decode())
+    
+    conn.close()
+
+if __name__ == "__main__":
+    solve()
+
+"""
+Résultat : 
+[+] Opening connection to 83.136.253.144 on port 59131: Done
+T = [[13, 2, 2, 3], [13, 2, 13, 1], [7, 14, 11, 3], [15, 12, 15, 5]]
+K = [[32, 4, 12, 8], [20, 32, 60, 48], [40, 24, 44, 56], [48, 8, 8, 48]]
+L = [[1, 195, 129, 195], [67, 130, 66, 2], [3, 195, 2, 65], [0, 130, 2, 193]]
+Flag ciphertext hex length: 96
+Decrypted flag: HTB{n30n_c0r3_blu3pr1n7_r3v34l3d}
+[*] Closed connection to 83.136.253.144 port 59131
+"""
