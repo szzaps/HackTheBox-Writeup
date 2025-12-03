@@ -1,0 +1,60 @@
+Étape 1: Analyse Initiale du Binaire
+- Le programme principal (entry()) est un wrapper CRT standard MSVC. La logique principale se trouve dans FUN_140001180().
+
+Étape 2: Décodage du Shellcode
+La fonction FUN_140001180() :
+- Affiche un message de debug : "Running Firefox (105.0.1) Hooking Module"
+- Décode 0x5A4 bytes depuis DAT_140017000 avec XOR 0x72
+- Injecte ce shellcode dans firefox.exe
+
+# Décodage du shellcode
+payload = bytes([...])  # Données depuis .data
+shellcode = bytes(b ^ 0x72 for b in payload)
+
+Étape 3: Analyse Statique du Shellcode
+- Le shellcode déchiffré contient des chaînes révélatrices :
+- VirtualAlloc, VirtualProtect (allocation mémoire)
+- PR_Write (fonction NSPR de Firefox)
+- :POST
+- Fonctions réseau (socket, WSAStartup, etc.)
+
+Étape 4: Localisation du Flag Chiffré
+- Dans le shellcode déchiffré, à l'offset 0x260, on trouve 32 bytes de données chiffrées :
+
+0x260: 54 d5 13 3a 41 99 d4 b6 93 74 19 41 97 61 5a b6
+0x270: 54 61 61 38 81 98 b7 b6 f4 e1 d8 b9 77 19 f7 fa
+
+Étape 5: Algo de Déchiffrement
+Pour chaque byte chiffré:
+1. Soustraire 0x13
+2. Rotation à gauche de 3 bits (ROL8)
+3. XOR avec 0x42
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+uint8_t rol8(uint8_t x, int n) {
+    return (uint8_t)(((x << n) | (x >> (8 - n))) & 0xFF);
+}
+
+int main() {
+    uint8_t enc[] = {
+        0x54,0xD5,0x13,0x3A,0x41,0x99,0xD4,0xB6,
+        0x93,0x74,0x19,0x41,0x97,0x61,0x5A,0xB6,
+        0x54,0x61,0x61,0x38,0x81,0x98,0xB7,0xB6,
+        0xF4,0xE1,0xD8,0xB9,0x77,0x19,0xF7,0xFA
+    };
+
+    size_t n = sizeof(enc);
+    for (size_t i = 0; i < n; i++) {
+        uint8_t v = (enc[i] - 0x13) & 0xFF;
+        v = rol8(v, 3);
+        v ^= 0x42;
+        putchar(v);
+    }
+
+    return 0;
+} // gcc -o oni-chan oni-chan.c
+
+et c'est flag :D
