@@ -1,0 +1,127 @@
+"""
+La VM utilise un langage d'assemblage "cryptique" avec des noms de registres vraiment chelou (carbo,protein, vegetable, etc.)
+Le programme lit un flag de 32 caractères, applique deux transformations
+de permutation, puis compare le résultat avec une chaîne chiffrée pré-calculée.
+
+Structure de la VM
+- 13 instructions (dont une non utilisée)
+- 6 registres : r1_vegetable, r2_fruit, r3_meat, r4_dairy, r5_protein, r6_carbo ( sacrément touché 0xrakesh )
+- SP register pointant sur le dernier élément du tableau
+
+Fonctions Identifiées
+- spell(1, buffer, length) : Écriture (write)
+- spell(0, buffer, length) : Lecture (read)
+- strcmp(buffer1, buffer2) : Comparaison de chaînes
+
+Logique du Programme
+- Affichage du prompt 
+- Affiche "Enter the flag: " (16 caractères)
+
+Lecture du flag
+- Lit l'input utilisateur dans buffer[0x14..0x34] (32 caractères max)
+
+Vérification de la longueur
+- Vérifie que le flag fait exactement 32 caractères (0x20)
+
+Première permutation (Round 1)
+- Transforme le flag par blocs de 4 octets selon le pattern :
+Original: [A, B, C, D] → Résultat: [C, B, D, A]
+- Appliqué 8 fois (pour 32 octets = 8 blocs de 4)
+
+Deuxième permutation (Round 2)
+- Réorganise les 32 octets selon une séquence spécifique :
+
+Nouvelle position 0x42: index 0x14 (0)
+Nouvelle position 0x43: index 0x19 (5)
+Nouvelle position 0x44: index 0x1E (10)
+Nouvelle position 0x45: index 0x23 (15)
+Nouvelle position 0x46: index 0x17 (3)
+Nouvelle position 0x47: index 0x1A (6)
+Nouvelle position 0x48: index 0x1D (9)
+Nouvelle position 0x49: index 0x20 (12)
+Nouvelle position 0x4A: index 0x18 (4)
+Nouvelle position 0x4B: index 0x15 (1)
+Nouvelle position 0x4C: index 0x16 (2)
+Nouvelle position 0x4D: index 0x1B (7)
+Nouvelle position 0x4E: index 0x1C (8)
+Nouvelle position 0x4F: index 0x21 (13)
+Nouvelle position 0x50: index 0x22 (14)
+Nouvelle position 0x51: index 0x1F (11)
+Nouvelle position 0x52: index 0x24 (16)
+Nouvelle position 0x53: index 0x29 (21)
+Nouvelle position 0x54: index 0x2E (26)
+Nouvelle position 0x55: index 0x33 (31)
+Nouvelle position 0x56: index 0x27 (19)
+Nouvelle position 0x57: index 0x2A (22)
+Nouvelle position 0x58: index 0x2D (25)
+Nouvelle position 0x59: index 0x30 (28)
+Nouvelle position 0x5A: index 0x28 (20)
+Nouvelle position 0x5B: index 0x25 (17)
+Nouvelle position 0x5C: index 0x26 (18)
+Nouvelle position 0x5D: index 0x2B (23)
+Nouvelle position 0x5E: index 0x2C (24)
+Nouvelle position 0x5F: index 0x31 (29)
+Nouvelle position 0x60: index 0x32 (30)
+Nouvelle position 0x61: index 0x2F (27)
+
+Comparaison finale
+- Compare le résultat avec la chaîne chiffrée à buffer[0x70..0x90]
+
+Résolution : 
+- Les données à buffer[0x40..0x60] (en hex) :
+
+0x35 ('5'), 0x6d ('m'), 0x61 ('a'), 0x4e ('N'), 0x63 ('c'), 0x49 ('I'), 0x34 ('4'), 0x5f ('_')
+0x5f ('_'), 0x55 ('U'), 0x31 ('1'), 0x30 ('0'), 0x5f ('_'), 0x64 ('d'), 0x65 ('e'), 0x35 ('5')
+0x4c ('L'), 0x31 ('1'), 0x33 ('3'), 0x5f ('_'), 0x4d ('M'), 0x6e ('n'), 0x34 ('4'), 0x55 ('U')
+0x30 ('0'), 0x75 ('u'), 0x34 ('4'), 0x74 ('t'), 0x72 ('r'), 0x66 ('f'), 0x6e ('n'), 0x5f ('_')
+
+Soit : "5maNcI4__U10_de5L13_Mn4U0u4trfn_"
+
+Script pour dechiffrer en C : 
+
+#include <stdio.h>
+#include <stdint.h>
+
+int main() {
+    uint8_t encrypted_flag[] =
+        "5maNcI4__U10_de5L13_Mn4U0u4trfn_";
+
+    uint8_t buffer[sizeof(encrypted_flag)];
+    size_t n = sizeof(encrypted_flag) - 1;
+
+    int second_round[] = {
+        0x00,0x05,0x0A,0x0F,0x03,0x06,0x09,0x0C,
+        0x04,0x01,0x02,0x07,0x08,0x0D,0x0E,0x0B,
+        0x10,0x15,0x1A,0x1F,0x13,0x16,0x19,0x1C,
+        0x14,0x11,0x12,0x17,0x18,0x1D,0x1E,0x1B
+    };
+
+    int first_round[] = {
+        0x02,0x01,0x03,0x00,0x06,0x05,0x07,0x04,
+        0x0A,0x09,0x0B,0x08,0x0E,0x0D,0x0F,0x0C,
+        0x12,0x11,0x13,0x10,0x16,0x15,0x17,0x14,
+        0x1A,0x19,0x1B,0x18,0x1E,0x1D,0x1F,0x1C
+    };
+
+    int second_rev[32];
+    int first_rev[32];
+
+    for (int i = 0; i < 32; i++)
+        second_rev[second_round[i]] = i;
+
+    for (int i = 0; i < 32; i++)
+        first_rev[first_round[i]] = i;
+
+    for (int i = 0; i < 32; i++)
+        buffer[i] = encrypted_flag[second_rev[i]];
+
+    for (int i = 0; i < 32; i++)
+        putchar(buffer[first_rev[i]]);
+
+    putchar('\n');
+    return 0;
+} // gcc -o oni-chan oni-chan.c
+
+
+
+"""
