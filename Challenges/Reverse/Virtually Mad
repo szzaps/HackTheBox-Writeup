@@ -1,0 +1,85 @@
+"""
+The VM has:
+- 4 registers: a, b, c, d (encoded as 0-3)
+- A flags register that can be 0 or 0x10000000
+- Only 5 instructions: mov, add, sub, cmp, exit
+
+Instruction Format
+- Each instruction is 4 bytes (32 bits) with this structure:
+
+[7 6 5 4 3 2 1 0]  ← Nibble indices
+┌─┬─┬─┬─┬─┬─┬─┬─┐
+│Op│1│D│F│   V   │
+└─┴─┴─┴─┴─┴─┴─┴─┘
+
+Where:
+- Nibbles 7-6: Opcode (2 bits)
+- Nibble 5: Always 1
+- Nibble 4: Destination register (0-3)
+- Nibble 3: Flag (0=immediate, 1=register)
+- Nibbles 0-2: Immediate value or source register
+
+Opcode Mapping :
+- 01 = mov (0x1)
+- 02 = add (0x2)
+- 03 = sub (0x3)
+- 04 = cmp (0x4)
+- 05 = exit (0x5)
+
+After program execution:
+- a = 0x200
+- b = -1 (0xffffffff)
+- c = -1
+- d = 0
+- flags = 0x10000000
+- Exactly 5 instructions executed
+
+Solution : 
+- Step-by-Step Program Construction
+
+Instruction: 02100100
+  Opcode: 0x2 (add)
+  Always 1: 0x1
+  Dest reg: 0x0 (a)
+  IR flag: 0x0 (immediate)
+  Value: 0x100 (256 decimal)
+
+Instruction: 02100100
+  Opcode: 0x2 (add)
+  Always 1: 0x1
+  Dest reg: 0x0 (a)
+  IR flag: 0x0 (immediate)
+  Value: 0x100 (256 decimal)
+
+Instruction: 03110001
+  Opcode: 0x3 (sub)
+  Always 1: 0x1
+  Dest reg: 0x1 (b)
+  IR flag: 0x0 (immediate)
+  Value: 0x1 (1 decimal)
+
+Instruction: 01121100
+  Opcode: 0x1 (mov)
+  Always 1: 0x1
+  Dest reg: 0x2 (c)
+  IR flag: 0x1 (register)
+  Value: 0x100 (256 decimal)
+  Source reg: b
+
+Instruction: 04130000
+  Opcode: 0x4 (cmp)
+  Always 1: 0x1
+  Dest reg: 0x3 (d)
+  IR flag: 0x0 (immediate)
+  Value: 0x0 (0 decimal)
+
+Final state:
+  a = 0x200 (512)
+  b = 0xffffffff (4294967295)
+  c = 0xffffffff (4294967295)
+  d = 0x0 (0)
+  flags = 0x10000000
+
+soit 0210010002100100031100010112110004130000
+
+:D
