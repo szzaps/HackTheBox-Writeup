@@ -1,0 +1,122 @@
+"""
+Analyse du système
+On a :
+- Un RNG LCG : s_{i+1} = p * s_i + q mod r
+- p, q, r sont des inconnues (avec r premier 768 bits, p,q < r)
+- n = p * q * r connu (768*3 bits)
+- On nous donne s[0..4] (5 valeurs successives)
+- Le but : trouver d = e^{-1} mod phi(n), avec e=0x10001, pour dériver la clé AES.
+
+Relations
+- Soit s0, s1, s2, s3, s4 connus, avec :
+
+s1 = p*s0 + q mod r
+s2 = p*s1 + q mod r
+s3 = p*s2 + q mod r
+s4 = p*s3 + q mod r
+
+Différences :
+
+s2 - s1 = p*(s1 - s0) mod r
+s3 - s2 = p*(s2 - s1) mod r
+s4 - s3 = p*(s3 - s2) mod r
+
+Donc modulo r :
+
+(s2 - s1)*(s2 - s1) ≡ (s3 - s2)*(s1 - s0)  (mod r)
+
+- Car (s2-s1)^2 = p*(s1-s0)*p*(s1-s0) = p^2*(s1-s0)^2,
+- et (s3-s2)*(s1-s0) = p*(s2-s1)*(s1-s0) = p^2*(s1-s0)^2.
+
+Ainsi :
+
+T = (s2-s1)^2 - (s3-s2)*(s1-s0) = k1 * r
+pour un entier k1.
+
+De même, une autre combinaison :
+U = (s3-s2)^2 - (s4-s3)*(s2-s1) = k2 * r
+
+Donc gcd(T, U) sera un multiple de r.
+Comme r est premier et |k1|,|k2| petits (théoriquement), gcd(T,U) = r (ou petit multiple).
+
+Calcul de r
+
+s = [...]
+T = (s[2]-s[1])**2 - (s[3]-s[2])*(s[1]-s[0])
+U = (s[3]-s[2])**2 - (s[4]-s[3])*(s[2]-s[1])
+r = abs(gcd(T, U))
+
+- Vérifier que r est premier 768 bits.
+
+Trouver p et q
+- Avec r connu, on peut résoudre modulo r :
+
+s1 ≡ p*s0 + q  (mod r)
+s2 ≡ p*s1 + q  (mod r)
+
+- Soustraire : s2 - s1 ≡ p*(s1 - s0) mod r
+- Donc p ≡ (s2 - s1) * inv(s1 - s0, r) mod r,
+- puis q ≡ s1 - p*s0 mod r.
+
+On a maintenant p,q comme entiers modulo r (0..r-1), mais on sait que p,q < r (donc c’est exactement p,q entiers)
+
+Trouver d
+- On a n = p*q*r connu.
+- phi(n) = (p-1)*(q-1)*(r-1)
+- d = inverse(e, phi(n))
+
+- Avec d, on calcule key = sha256(long_to_bytes(d)).digest(), AES-ECB déchiffre le flag.
+"""
+
+from Crypto.Util.number import long_to_bytes, inverse, GCD, isPrime
+from hashlib import sha256
+from Crypto.Cipher import AES
+import sympy
+
+n = 517495531141413882619785629484073434334367374182425267832518928407090063228723780412707721134861704719046954060059519679044663362858039921326489634825074603137032497271990025361391019003853503655025773302574708586971339746175840486659372645050955030026562982540004381854193579383875586674576993334205627371394374175238089813479224550063267698552818981347863336705499123438535907072400999074105076872842922134632004525330943583893719811825964068870078476237254105191183175431815161806521309468291623594849405204251850057925238694969421092423608012736887311225866565727354867400387505854644025536146885666270169524014384999244678334643449618513882867624014754844721482636856663752713120622809209
+s = [784218152416394405091964333052058791313859525150215968158667010620927852758462291022800955249222370074393328561762878930414694707920591658431974119310670333794867606006795899780363674768972994799569229309801063823717053583499300222, 117844651397666849809258682128673914306177443815374652906886025265114752321815110890186970583580475821924619361762677026769047698813079218364902722849184274195414754785619739564959255224997078907488139425647648408247154825061716309, 61493148556640923069669308478684643760453844796631149909998916055995969830079591336005848473905026088451064847063880787258045070363359478597469452194254550973763127419036031037505421050223740876723920669420589492475793536817752179, 385226573805950622034434256055680934318291330051514311585010364332881865675585231530632546612059411877376139482924838615065334915075901680603748606342007947170890951993914739012558552417988581119289931292019725974545209615603031339, 784431720042683594850895884434968054900304420502856912529544483628362060694160095173569455027892192687604844742111377055558499818308721461221742196792453489683151795374989702609801983203785226494247429342826031503288026649229931492]
+enc_flag_hex = "bf78c07aee8194ffea6b4029887d22cf0aa17ada6d9b091589f7248c4b64a292d77912e95fe992cdd096baa360042fa67eba1c71cf7ad92ad8fab3c5398f6e87b825f14d015a8021669138d85f7b11b5"
+
+T = (s[2] - s[1])**2 - (s[3] - s[2])*(s[1] - s[0])
+U = (s[3] - s[2])**2 - (s[4] - s[3])*(s[2] - s[1])
+
+r_candidate = GCD(T, U)
+
+factors = sympy.factorint(r_candidate)
+
+r = None
+for f in factors:
+    if f.bit_length() in range(767, 770) and isPrime(f):
+        r = f
+        break
+
+if r is None:
+    temp = r_candidate
+    for f in sorted(factors):
+        if f.bit_length() < 100:
+            while temp % f == 0:
+                temp //= f
+    if temp.bit_length() in range(767, 770) and isPrime(temp):
+        r = temp
+    else:
+        r = max(sympy.primefactors(r_candidate))
+
+assert n % r == 0
+
+diff1 = (s[1] - s[0]) % r
+diff2 = (s[2] - s[1]) % r
+inv_diff1 = inverse(diff1, r)
+p_val = (diff2 * inv_diff1) % r
+q_val = (s[1] - p_val * s[0]) % r
+
+assert p_val * q_val * r == n
+
+phi = (p_val - 1) * (q_val - 1) * (r - 1)
+e = 0x10001
+d = inverse(e, phi)
+
+key = sha256(long_to_bytes(d)).digest()
+cipher = AES.new(key, AES.MODE_ECB)
+ct = bytes.fromhex(enc_flag_hex)
+flag = cipher.decrypt(ct)
+print(flag)
