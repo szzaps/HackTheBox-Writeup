@@ -1,0 +1,114 @@
+"""
+Analyse du schéma Diffie-Hellman
+  Le serveur génère des paramètres :
+- r : premier de 512 bits
+- q : premier de 42 bits
+- p = 2*q*r + 1 (premier sûr, car p-1 = 2*q*r)
+- g : générateur d’un sous-groupe d’ordre q (pas d’ordre 2*r ou 2*q*r)
+
+En effet 
+- g = h^(2*r) mod p avec h premier 42 bits
+- L’ordre de g divise p-1 = 2*q*r
+- g^q mod p = h^(2*r*q) = h^(p-1) = 1 mod p (ptit théorème de Fermat)
+- Donc l’ordre de g divise q
+- Comme q est premier et g ≠ 1, l’ordre est exactement q (petit : ~42 bits)
+
+Problème
+- La clé secrète partagée ss = A^b mod p = g^(a*b) mod p appartient au sous-groupe d’ordre q (~42 bits).
+- On connaît p, g, A, B.
+
+Attaque possible :
+- L’ordre q est petit → on peut calculer le logarithme discret a ou b modulo q.
+- Plus précisément : calculer a mod q à partir de A = g^a mod p.
+- Puisque g est d’ordre q, on a a ≡ a_modq (mod q) avec a_modq petit (0..q-1).
+
+Calcul de a mod q
+- On ignore a entier complet (grand modulo p-1), mais pour calculer ss = B^a mod p, il suffit de connaître a mod q, car dans le sous-groupe d’ordre q généré par g :
+g^x = g^(x mod q)
+- Ainsi, ss = B^(a_modq) mod p
+- Or B = g^b mod p, donc B est aussi dans le sous-groupe d’ordre q
+- Donc ss = B^(a_modq) mod p peut se calculer si on trouve a_modq
+
+Étape 1 : trouver q
+- On connaît p, et p-1 = 2*q*r.
+Factoriser p-1 est facile car un facteur q est petit (42 bits) → trial division ou ECM rapide.
+- Mais ici, pas besoin de factoriser complètement, on peut obtenir q en calculant l’ordre de g :
+- L’ordre de g divise p-1. Comme il est premier, c’est soit 2, q, ou r.
+- Ce n’est pas 2 car g ≠ 1 et test g^2 mod p ≠ 1 probablement.
+
+- Ce n’est pas r (512 bits) car g^q = 1 mod p.
+
+Donc ordre = q.
+- On peut trouver q en cherchant le plus petit k>1 tel que g^k mod p = 1.
+- Vu que q est ~42 bits (quelques milliers de milliards) peut pas brute force mais jpeux peut factoriser p-1 avec sympy/yafu pour extraire q
+
+Étape 2 : calculer a_modq
+- Résoudre g^(a_modq) = A mod p dans le groupe d’ordre q (petit) par Pohlig-Hellman trivial ici : l’ordre est premier petit
+- donc on peut brute force a_modq de 0 à q-1 ou utiliser discrete_log de sympy
+
+Étape 3 : calculer ss
+- ss = B^(a_modq) mod p (puisque B est dans le sous-groupe généré par g).
+
+Étape 4 : déchiffrer
+- key = sha256(long_to_bytes(ss)).digest()[:16]
+AES-ECB déchiffre le flag
+"""
+
+from pwn import remote
+from Crypto.Util.number import long_to_bytes
+from hashlib import sha256
+from Crypto.Cipher import AES
+from sympy import factorint, discrete_log
+
+def get_params():
+    p.recvuntil(b'> ')
+    p.sendline(b'1')
+    data = p.recvuntil(b'\n\n').decode().strip()
+    lines = data.split('\n')
+    p_val = int(lines[0].split('=')[1].strip())
+    g_val = int(lines[1].split('=')[1].strip())
+    A_val = int(lines[2].split('=')[1].strip())
+    B_val = int(lines[3].split('=')[1].strip())
+    return p_val, g_val, A_val, B_val
+
+def get_encrypted_flag():
+    p.recvuntil(b'> ')
+    p.sendline(b'3')
+    data = p.recvline().decode().strip()
+    ct_hex = data.split('=')[1].strip()
+    return ct_hex
+
+host = "94.237.123.185"
+port = 55975
+
+p = remote(host, port)
+
+p_int, g_int, A_int, B_int = get_params()
+
+pm1 = p_int - 1
+factors = factorint(pm1)
+
+q_candidates = [f for f in factors if f.bit_length() <= 50]
+if not q_candidates:
+    for f in factors:
+        if f.bit_length() <= 50 and f != 2:
+            q_int = f
+            break
+else:
+    q_int = q_candidates[0] if q_candidates[0] != 2 else q_candidates[1]
+
+assert pow(g_int, q_int, p_int) == 1
+
+a_modq = discrete_log(p_int, A_int, g_int, q_int)
+
+ss = pow(B_int, a_modq, p_int)
+
+key = sha256(long_to_bytes(ss)).digest()[:16]
+cipher = AES.new(key, AES.MODE_ECB)
+
+ct_hex = get_encrypted_flag()
+ct = bytes.fromhex(ct_hex)
+flag = cipher.decrypt(ct)
+print(flag)
+
+p.close()
