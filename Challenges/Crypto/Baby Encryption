@@ -1,0 +1,45 @@
+"""
+- Le script chall.py applique une transformation affine sur chaque caractère (considéré comme un entier 0–255) :
+ct[i] = (123 * msg[i] + 18) mod 256 // C’est un chiffrement affine modulo 256, donc inversible si 123 est inversible modulo 256.
+
+Vérification de l’inversibilité
+- gcd(123, 256) = 1 (car 123 est impair et 256 = 2^8), donc 123 est bien inversible modulo 256.
+- On trouve l’inverse inv tel que 123 * inv ≡ 1 (mod 256).
+Par l’algo d’Euclide étendu :
+
+256 = 123*2 + 10
+123 = 10*12 + 3
+10 = 3*3 + 1
+1 = 10 - 3*3
+1 = 10 - 3*(123 - 10*12)
+1 = 10*37 - 3*123
+1 = (256 - 123*2)*37 - 3*123
+1 = 256*37 - 123*74 - 123*3
+1 = 256*37 - 123*77
+
+- Donc -77 ≡ 179 mod 256 est l’inverse de 123 modulo 256.
+- Petite verif : 123 * 179 = 22017 ≡ 1 mod 256
+
+Inversion de la transformation
+- Soit c = (123 * m + 18) mod 256
+- On a 123 * m ≡ c - 18 (mod 256)
+- Donc m ≡ (c - 18) * 179 mod 256
+"""
+
+import binascii
+
+def decryption(ct_bytes):
+    pt = []
+    inv = 179  # inverse de 123 mod 256
+    for c in ct_bytes:
+        m = ((c - 18) * inv) % 256
+        pt.append(m)
+    return bytes(pt)
+
+# Lecture du fichier chiffré
+with open('msg.enc', 'r') as f:
+    hexdata = f.read().strip()
+
+ct = bytes.fromhex(hexdata)
+msg = decryption(ct)
+print(msg.decode())
