@@ -1,0 +1,20 @@
+C'est un rootkit userland utilisant le détournement de LD_PRELOAD.
+
+Détails du rootkit :
+- Mécanisme : /etc/ld.so.preload configuré pour charger /lib/x86_64-linux-gnu/libc.hook.so.6
+- Bibliothèque malveillante : libc.hook.so.6 (15 688 octets, accessible en écriture par tous : -rw-rw-r--)
+
+Fonctions :
+- readdir / readdir64 - pour cacher les fichiers/répertoires
+- fopen - pour cacher les tentatives d'accès aux fichiers
+- strcmp / strstr - pour cacher des chaînes spécifiques dans la sortie
+- dlsym - pour intercepter le chargement des bibliothèques dynamiques
+- Contenu caché : La chaîne "pr3l04d" utilisée pour identifier les fichiers à cacher
+
+Étapes de l'investigation :
+Détection initiale : ldd /usr/sbin/sshd montrait /lib/x86_64-linux-gnu/libc.hook.so.6 au lieu de libc.so.6
+
+- /etc/ld.so.preload contenait /lib/x86_64-linux-gnu/libc.hook.so.6
+- Analyse de la bibliothèque : La bibliothèque malveillante intercepte des fonctions pour cacher sa présence ( classique )
+- Découverte : En déplaçant la bibliothèque malveillante les hooks du rootkit ont échoué ce qui nous à révélé le contenu caché
+- Flag : /var/pr3l04d_/flag.txt contenant HTB{Us3rL4nd_R00tK1t_R3m0v3dd!}
